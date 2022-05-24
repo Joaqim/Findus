@@ -1,12 +1,13 @@
-import SalesAccounts from "@SalesAccounts";
-import createMapFromRecord from "@utils/createMapFromRecord";
-import VatAccounts from "@VATAccounts";
+import SalesAccounts from "./data/SalesAccounts";
+import VatAccounts from "./data/VATAccounts";
+import createMapFromRecord from "./utils/createMapFromRecord";
 
-interface Rate {
-  rate: number;
-  account: number;
+export interface Rate {
+  vat: number;
+  accountNumber: number;
 }
-interface Account {
+
+export interface Account {
   country?: string;
   standard: Rate;
   reduced?: Rate;
@@ -20,15 +21,6 @@ type Entries<T> = Array<
 
 const entries = <Object_>(object: Object_): Entries<Object_> =>
   Object.entries(object) as Entries<Object_>;
-
-export const mapFromRecord = (
-  data: Record<string, Account>
-): Map<string, Account> =>
-  // eslint-disable-next-line unicorn/no-array-reduce
-  entries(data).reduce((accumulator, [key, value]) => {
-    accumulator.set(key, value);
-    return accumulator;
-  }, new Map<string, Account>());
 
 abstract class Accounts {
   private static readonly vat = createMapFromRecord<string, Account>(
@@ -44,7 +36,7 @@ abstract class Accounts {
     isReduced = false,
     paymentMethod?: string | undefined
   ): Rate {
-    const account = this.getAccount(countryIso, paymentMethod);
+    const account = this.getSalesAccount(countryIso, paymentMethod);
 
     if (isReduced) {
       return account.reduced ?? account.standard;
@@ -52,7 +44,7 @@ abstract class Accounts {
     return account.standard;
   }
 
-  public static getAccount(
+  public static getSalesAccount(
     countryIso: string,
     paymentMethod?: string
   ): Account {

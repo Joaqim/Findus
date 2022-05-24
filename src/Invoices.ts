@@ -1,11 +1,19 @@
 /* eslint-disable class-methods-use-this */
-import Accounts from "@Accounts";
-import CultureInfo from "@CultureInfo";
-import type InvoiceInit from "@InvoiceInit";
-import type { InvoiceRowInit } from "@InvoiceInit";
-import type { LineItem, Tax, WcOrder } from "@WcOrder";
+import type { Rate } from "./Accounts";
+import Accounts from "./Accounts";
+import CultureInfo from "./CultureInfo";
+import LineItems from "./LineItems";
+import type {
+  InvoiceInit,
+  InvoiceRowInit,
+  LineItem,
+  MetaData,
+  WcOrder,
+} from "./types";
+import type { TaxLabel } from "./WcOrders";
+import WcOrders from "./WcOrders";
 
-export default class Verification {
+export default abstract class Invoices {
   private sanitizeCountryName(countryName: string): string {
     switch (countryName) {
       case "PRC":
@@ -13,6 +21,28 @@ export default class Verification {
       default:
         return countryName;
     }
+  }
+
+  public static verifyRateForItem(
+    order: WcOrder,
+    rate: Rate,
+    item: LineItem
+  ): TaxLabel {
+    if (rate.vat == 0) {
+      return { vat: 0, label: "0% Vat" };
+    }
+
+    const isStandard = item.taxClass !== "reduced-rate";
+    const taxRates = WcOrders.getTaxRateLabels(order.taxLines);
+
+    const taxLabel = isStandard ? taxRates.standard : taxRates.reduced;
+
+    if (rate.vat !== taxLabel.vat) {
+      throw new Error(
+        `VAT Rate miss-match, expected value: ${rate.vat} VAT, but WooCommerce gave: ${taxLabel.vat}% VAT, with label: ${taxLabel.label}`
+      );
+    }
+    return taxLabel;
   }
 
   public static getPaymentMethod(order: WcOrder): "Stripe" | "PayPal" {
@@ -37,21 +67,9 @@ export default class Verification {
     );
   }
 
-  public static getTotalWithTax(item: LineItem): number {
-    return item.price + Verification.getTotalWithTax(item);
-  }
-
-  public static getAccurateTaxTotal(item: LineItem): number {
-    let result = 0;
-    item.taxes.forEach((tax: Tax) => {
-      result += parseFloat(tax.total);
-    });
-    return result;
-  }
-
-  /* TODO: Add PaymentFee to Verifikat
+  // TODO: Add PaymentFee to Verifikat / Accrual Invoice
   public static addPaymentFee(
-    invoiceRows: InvoiceRowInit[],
+    invoiceRows: InvoiceRowInit[], // AccrualInvoiceRows?
     order: WcOrder,
     rate: Rate,
     paymentMethod: "Stripe" | "PayPal"
@@ -73,9 +91,24 @@ export default class Verification {
     if (!feeData || parseFloat(feeData.value) < 0) {
       throw new Error(`Unexpected Fee: ${paymentMethod}`);
     }
+    const fee = parseFloat(feeData.value);
 
+    if (fee <= 0 || fee >= parseFloat(order.total)) {
+      throw new Error(`Unexpected fee amount for '${feeData.key}': ${fee}`);
+    }
+
+    /*
+    let salesAccount = Accounts.getSalesAccount(order.billing.country)
+
+    invoiceRows.push({
+                accountNumber:
+                credit: fee,
+                info: $"{paymentMethod} Avgift - Utgående"
+    });
+
+    invoiceRows.push({accountNumber: 6570, debit: fee, info: `${paymentMethod} Avgift`});
+    */
   }
-  */
 
   public createInvoice(order: WcOrder, currencyRate = 1): InvoiceInit | null {
     const currency = order.currency;
@@ -91,7 +124,7 @@ export default class Verification {
         order.billing.country
       );
 
-      const paymentMethod = Verification.getPaymentMethod(order);
+      const paymentMethod = Invoices.getPaymentMethod(order);
 
       const shippingCost = parseFloat(order.shippingTotal);
 
@@ -101,22 +134,22 @@ export default class Verification {
 
       for (const item of order.lineItems) {
         const isReduced = item.taxClass !== "reduced-rate";
-        const { rate, account } = Accounts.getRate(
+        const { vat, accountNumber } = Accounts.getRate(
           countryIso,
           isReduced,
           paymentMethod
         );
 
-        if (rate > highestRate) {
-          highestRate = rate;
+        if (vat > highestRate) {
+          highestRate = vat;
         }
 
         invoiceRows.push({
-          accountNumber: account,
+          accountNumber,
+          vat,
           articleNumber: item.sku,
           deliveredQuantity: item.quantity.toString(),
-          price: Verification.getTotalWithTax(item),
-          vat: rate,
+          price: LineItems.getTotalWithTax(item),
         });
       }
 

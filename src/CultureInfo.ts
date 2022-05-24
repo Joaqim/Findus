@@ -1,5 +1,6 @@
-import cultures from "@cultures";
-import createMapFromRecord from "@utils/createMapFromRecord";
+import cultures from "./data/cultures";
+import EUCountries from "./data/EUCountries";
+import createMapFromRecord from "./utils/createMapFromRecord";
 
 abstract class CultureInfo {
   private static readonly cultures = createMapFromRecord<string, string>(
@@ -15,6 +16,12 @@ abstract class CultureInfo {
 
     return countryName;
   }
+
+  public static isInsideEU(countryIso: string): boolean {
+    return EUCountries.includes(countryIso.toUpperCase())
+  }
+
+
 }
 
 export default CultureInfo;

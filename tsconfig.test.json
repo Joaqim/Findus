@@ -12,8 +12,7 @@
     "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
-      "findus": ["src"],
-      "findus/*": ["src/*"]
+      "findus": ["src"]
     },
     "types": [
       "mocha",

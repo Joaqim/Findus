@@ -1,6 +1,6 @@
 import { expect } from "chai"
 
-import {Token} from "findus"
+import { Token } from "findus"
 
 describe('add', () => {
   it('adds', ()=> {

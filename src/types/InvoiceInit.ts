@@ -1,4 +1,4 @@
-import type { InvoiceType, Label, PaymentWay } from "@Invoice";
+import type { InvoiceType, Label, PaymentWay } from "./Invoice";
 
 export interface InvoiceRowInit {
   accountNumber: number;
