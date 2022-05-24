@@ -43,7 +43,7 @@ abstract class Accounts {
       const account = this.sales.get(countryIso);
 
       if (!account)
-        throw new Error(`Missing Account for country: ${countryIso}`);
+        throw new Error(`Missing Sales Account for country: ${countryIso}`);
       return account;
     }
 
@@ -56,7 +56,36 @@ abstract class Accounts {
     const account = this.sales.get(paymentMethod) as Account;
 
     if (!account)
-      throw new Error(`Missing Account for Payment Method: ${paymentMethod}`);
+      throw new Error(
+        `Missing Sales Account for Payment Method: ${paymentMethod}`
+      );
+    return account;
+  }
+
+  public static getVatAccount(
+    countryIso: string,
+    paymentMethod?: string
+  ): Account {
+    if (this.vat.has(countryIso)) {
+      const account = this.vat.get(countryIso);
+
+      if (!account)
+        throw new Error(`Missing VAT Account for country: ${countryIso}`);
+      return account;
+    }
+
+    if (!paymentMethod) {
+      throw new Error(
+        `Payment Method is required for orders outside EU: ${countryIso}`
+      );
+    }
+
+    const account = this.vat.get(paymentMethod) as Account;
+
+    if (!account)
+      throw new Error(
+        `Missing VAT Account for Payment Method: ${paymentMethod}`
+      );
     return account;
   }
 }
