@@ -5,8 +5,8 @@ export interface TaxLabel {
   label: string;
 }
 
-namespace WcOrders {
-  export function getTaxRate(tax: TaxLine): number {
+abstract class WcOrders {
+  public static getTaxRate(tax: TaxLine): number {
     const taxLabel = tax.label;
 
     try {
@@ -16,7 +16,7 @@ namespace WcOrders {
     }
   }
 
-  export function getTaxRateLabels(taxes: TaxLine[]): {
+  public static getTaxRateLabels(taxes: TaxLine[]): {
     standard: TaxLabel;
     reduced: TaxLabel;
   } {
@@ -29,8 +29,8 @@ namespace WcOrders {
       if (labels[0]?.vat >= vat) labels.push(taxLabel);
       else labels = [taxLabel, ...labels];
     });
-    
-    /* TODO: Make sure this is correct, even if vat is equal between 'reduced' and 'standard' */ 
+
+    /* TODO: Make sure this is correct, even if vat is equal between 'reduced' and 'standard' */
     return { standard: labels[0], reduced: labels[1] };
   }
 }

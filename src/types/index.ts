@@ -8,4 +8,3 @@ export * from "./InvoiceInit";
 export type { default as InvoiceInit } from "./InvoiceInit";
 export * from "./WcOrder";
 export type { default as WcOrder } from "./WcOrder";
-

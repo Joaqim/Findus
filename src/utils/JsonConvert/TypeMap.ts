@@ -1,33 +1,30 @@
-function a(typ: any) {
+/* eslint-disable @typescript-eslint/explicit-function-return-type */
+function array(typ: unknown) {
   return { arrayItems: typ };
 }
 
-function u(...typs: any[]) {
+function union(...typs: unknown[]) {
   return { unionMembers: typs };
 }
 
-function o(properties: any[], additional: any) {
-  return { props: properties, additional };
+function object(properties: unknown[], additional: unknown) {
+  return { properties, additional };
 }
 
-function m(additional: any) {
-  return { props: [], additional };
-}
-
-function r(name: string) {
-  return { ref: name };
+function reference(name: string) {
+  return { reference: name };
 }
 
 export default {
-  Article: o(
+  Article: object(
     [
       { json: "ArticleNumber", js: "articleNumber", typ: "" },
       { json: "Description", js: "description", typ: "" },
-      { json: "Type", js: "type", typ: u(undefined, "") },
+      { json: "Type", js: "type", typ: union(undefined, "") },
     ],
     false
   ),
-  Invoice: o(
+  Invoice: object(
     [
       { json: "@url", js: "url", typ: "" },
       { json: "@urlTaxReductionList", js: "urlTaxReductionList", typ: "" },
@@ -65,7 +62,7 @@ export default {
       {
         json: "EDIInformation",
         js: "ediInformation",
-        typ: r("EDIInformation"),
+        typ: reference("EDIInformation"),
       },
       { json: "EUQuarterlyReport", js: "euQuarterlyReport", typ: true },
       {
@@ -86,9 +83,13 @@ export default {
       { json: "InvoicePeriodEnd", js: "invoicePeriodEnd", typ: "" },
       { json: "InvoicePeriodStart", js: "invoicePeriodStart", typ: "" },
       { json: "InvoiceReference", js: "invoiceReference", typ: "" },
-      { json: "InvoiceRows", js: "invoiceRows", typ: a(r("InvoiceRow")) },
+      {
+        json: "InvoiceRows",
+        js: "invoiceRows",
+        typ: array(reference("InvoiceRow")),
+      },
       { json: "InvoiceType", js: "invoiceType", typ: "" },
-      { json: "Labels", js: "labels", typ: a(r("Label")) },
+      { json: "Labels", js: "labels", typ: array(reference("Label")) },
       { json: "Language", js: "language", typ: "" },
       { json: "LastRemindDate", js: "lastRemindDate", typ: null },
       { json: "Net", js: "net", typ: 0 },
@@ -127,7 +128,7 @@ export default {
     ],
     false
   ),
-  EDIInformation: o(
+  EDIInformation: object(
     [
       {
         json: "EDIGlobalLocationNumber",
@@ -154,7 +155,7 @@ export default {
     ],
     false
   ),
-  InvoiceRow: o(
+  InvoiceRow: object(
     [
       { json: "AccountNumber", js: "accountNumber", typ: 0 },
       { json: "ArticleNumber", js: "articleNumber", typ: "" },
@@ -182,8 +183,8 @@ export default {
     ],
     false
   ),
-  Label: o([{ json: "Id", js: "id", typ: 0 }], false),
-  WcOrder: o(
+  Label: object([{ json: "Id", js: "id", typ: 0 }], false),
+  WcOrder: object(
     [
       { json: "id", js: "id", typ: 0 },
       { json: "parent_id", js: "parentID", typ: 0 },
@@ -209,8 +210,8 @@ export default {
       { json: "customer_ip_address", js: "customerIPAddress", typ: "" },
       { json: "customer_user_agent", js: "customerUserAgent", typ: "" },
       { json: "customer_note", js: "customerNote", typ: "" },
-      { json: "billing", js: "billing", typ: r("Ing") },
-      { json: "shipping", js: "shipping", typ: r("Ing") },
+      { json: "billing", js: "billing", typ: reference("Ing") },
+      { json: "shipping", js: "shipping", typ: reference("Ing") },
       { json: "payment_method", js: "paymentMethod", typ: "" },
       { json: "payment_method_title", js: "paymentMethodTitle", typ: "" },
       { json: "transaction_id", js: "transactionID", typ: "" },
@@ -219,22 +220,26 @@ export default {
       { json: "date_completed", js: "dateCompleted", typ: null },
       { json: "date_completed_gmt", js: "dateCompletedGmt", typ: null },
       { json: "cart_hash", js: "cartHash", typ: "" },
-      { json: "meta_data", js: "metaData", typ: a(r("MetaDatum")) },
-      { json: "line_items", js: "lineItems", typ: a(r("LineItem")) },
-      { json: "tax_lines", js: "taxLines", typ: a(r("TaxLine")) },
+      { json: "meta_data", js: "metaData", typ: array(reference("MetaDatum")) },
+      {
+        json: "line_items",
+        js: "lineItems",
+        typ: array(reference("LineItem")),
+      },
+      { json: "tax_lines", js: "taxLines", typ: array(reference("TaxLine")) },
       {
         json: "shipping_lines",
         js: "shippingLines",
-        typ: a(r("ShippingLine")),
+        typ: array(reference("ShippingLine")),
       },
-      { json: "fee_lines", js: "feeLines", typ: a("any") },
-      { json: "coupon_lines", js: "couponLines", typ: a("any") },
-      { json: "refunds", js: "refunds", typ: a("any") },
-      { json: "_links", js: "links", typ: r("Links") },
+      { json: "fee_lines", js: "feeLines", typ: array("any") },
+      { json: "coupon_lines", js: "couponLines", typ: array("any") },
+      { json: "refunds", js: "refunds", typ: array("any") },
+      { json: "_links", js: "links", typ: reference("Links") },
     ],
     false
   ),
-  Ing: o(
+  Ing: object(
     [
       { json: "first_name", js: "firstName", typ: "" },
       { json: "last_name", js: "lastName", typ: "" },
@@ -245,12 +250,12 @@ export default {
       { json: "state", js: "state", typ: "" },
       { json: "postcode", js: "postcode", typ: "" },
       { json: "country", js: "country", typ: "" },
-      { json: "email", js: "email", typ: u(undefined, "") },
-      { json: "phone", js: "phone", typ: u(undefined, "") },
+      { json: "email", js: "email", typ: union(undefined, "") },
+      { json: "phone", js: "phone", typ: union(undefined, "") },
     ],
     false
   ),
-  LineItem: o(
+  LineItem: object(
     [
       { json: "id", js: "id", typ: 0 },
       { json: "name", js: "name", typ: "" },
@@ -262,14 +267,14 @@ export default {
       { json: "subtotal_tax", js: "subtotalTax", typ: "" },
       { json: "total", js: "total", typ: "" },
       { json: "total_tax", js: "totalTax", typ: "" },
-      { json: "taxes", js: "taxes", typ: a(r("Tax")) },
-      { json: "meta_data", js: "metaData", typ: a(r("MetaDatum")) },
+      { json: "taxes", js: "taxes", typ: array(reference("Tax")) },
+      { json: "meta_data", js: "metaData", typ: array(reference("MetaDatum")) },
       { json: "sku", js: "sku", typ: "" },
       { json: "price", js: "price", typ: 0 },
     ],
     false
   ),
-  MetaDatum: o(
+  MetaDatum: object(
     [
       { json: "id", js: "id", typ: 0 },
       { json: "key", js: "key", typ: "" },
@@ -277,7 +282,7 @@ export default {
     ],
     false
   ),
-  Tax: o(
+  Tax: object(
     [
       { json: "id", js: "id", typ: 0 },
       { json: "total", js: "total", typ: "" },
@@ -285,27 +290,31 @@ export default {
     ],
     false
   ),
-  Links: o(
+  Links: object(
     [
-      { json: "self", js: "self", typ: a(r("Collection")) },
-      { json: "collection", js: "collection", typ: a(r("Collection")) },
+      { json: "self", js: "self", typ: array(reference("Collection")) },
+      {
+        json: "collection",
+        js: "collection",
+        typ: array(reference("Collection")),
+      },
     ],
     false
   ),
-  Collection: o([{ json: "href", js: "href", typ: "" }], false),
-  ShippingLine: o(
+  Collection: object([{ json: "href", js: "href", typ: "" }], false),
+  ShippingLine: object(
     [
       { json: "id", js: "id", typ: 0 },
       { json: "method_title", js: "methodTitle", typ: "" },
       { json: "method_id", js: "methodID", typ: "" },
       { json: "total", js: "total", typ: "" },
       { json: "total_tax", js: "totalTax", typ: "" },
-      { json: "taxes", js: "taxes", typ: a("any") },
-      { json: "meta_data", js: "metaData", typ: a("any") },
+      { json: "taxes", js: "taxes", typ: array("any") },
+      { json: "meta_data", js: "metaData", typ: array("any") },
     ],
     false
   ),
-  TaxLine: o(
+  TaxLine: object(
     [
       { json: "id", js: "id", typ: 0 },
       { json: "rate_code", js: "rateCode", typ: "" },
@@ -314,144 +323,176 @@ export default {
       { json: "compound", js: "compound", typ: true },
       { json: "tax_total", js: "taxTotal", typ: "" },
       { json: "shipping_tax_total", js: "shippingTaxTotal", typ: "" },
-      { json: "meta_data", js: "metaData", typ: a("any") },
+      { json: "meta_data", js: "metaData", typ: array("any") },
     ],
     false
   ),
-  Customer: o(
+  Customer: object(
     [
-      { json: "@url", js: "url", typ: u(undefined, "") },
-      { json: "Active", js: "active", typ: u(undefined, true) },
-      { json: "Address1", js: "address1", typ: u(undefined, "") },
-      { json: "Address2", js: "address2", typ: u(undefined, null) },
-      { json: "City", js: "city", typ: u(undefined, "") },
-      { json: "Comments", js: "comments", typ: u(undefined, null) },
-      { json: "CostCenter", js: "costCenter", typ: u(undefined, null) },
-      { json: "Country", js: "country", typ: u(undefined, "") },
-      { json: "CountryCode", js: "countryCode", typ: u(undefined, "") },
-      { json: "Currency", js: "currency", typ: u(undefined, "") },
-      { json: "CustomerNumber", js: "customerNumber", typ: u(undefined, "") },
+      { json: "@url", js: "url", typ: union(undefined, "") },
+      { json: "Active", js: "active", typ: union(undefined, true) },
+      { json: "Address1", js: "address1", typ: union(undefined, "") },
+      { json: "Address2", js: "address2", typ: union(undefined, null) },
+      { json: "City", js: "city", typ: union(undefined, "") },
+      { json: "Comments", js: "comments", typ: union(undefined, null) },
+      { json: "CostCenter", js: "costCenter", typ: union(undefined, null) },
+      { json: "Country", js: "country", typ: union(undefined, "") },
+      { json: "CountryCode", js: "countryCode", typ: union(undefined, "") },
+      { json: "Currency", js: "currency", typ: union(undefined, "") },
+      {
+        json: "CustomerNumber",
+        js: "customerNumber",
+        typ: union(undefined, ""),
+      },
       {
         json: "DefaultDeliveryTypes",
         js: "defaultDeliveryTypes",
-        typ: u(undefined, r("Default")),
+        typ: union(undefined, reference("Default")),
       },
       {
         json: "DefaultTemplates",
         js: "defaultTemplates",
-        typ: u(undefined, r("Default")),
+        typ: union(undefined, reference("Default")),
       },
       {
         json: "DeliveryAddress1",
         js: "deliveryAddress1",
-        typ: u(undefined, null),
+        typ: union(undefined, null),
       },
       {
         json: "DeliveryAddress2",
         js: "deliveryAddress2",
-        typ: u(undefined, null),
+        typ: union(undefined, null),
       },
-      { json: "DeliveryCity", js: "deliveryCity", typ: u(undefined, null) },
+      { json: "DeliveryCity", js: "deliveryCity", typ: union(undefined, null) },
       {
         json: "DeliveryCountry",
         js: "deliveryCountry",
-        typ: u(undefined, null),
+        typ: union(undefined, null),
       },
       {
         json: "DeliveryCountryCode",
         js: "deliveryCountryCode",
-        typ: u(undefined, null),
+        typ: union(undefined, null),
       },
-      { json: "DeliveryFax", js: "deliveryFax", typ: u(undefined, null) },
-      { json: "DeliveryName", js: "deliveryName", typ: u(undefined, null) },
-      { json: "DeliveryPhone1", js: "deliveryPhone1", typ: u(undefined, null) },
-      { json: "DeliveryPhone2", js: "deliveryPhone2", typ: u(undefined, null) },
+      { json: "DeliveryFax", js: "deliveryFax", typ: union(undefined, null) },
+      { json: "DeliveryName", js: "deliveryName", typ: union(undefined, null) },
+      {
+        json: "DeliveryPhone1",
+        js: "deliveryPhone1",
+        typ: union(undefined, null),
+      },
+      {
+        json: "DeliveryPhone2",
+        js: "deliveryPhone2",
+        typ: union(undefined, null),
+      },
       {
         json: "DeliveryZipCode",
         js: "deliveryZipCode",
-        typ: u(undefined, null),
+        typ: union(undefined, null),
       },
-      { json: "Email", js: "email", typ: u(undefined, "") },
-      { json: "EmailInvoice", js: "emailInvoice", typ: u(undefined, "") },
-      { json: "EmailInvoiceBCC", js: "emailInvoiceBCC", typ: u(undefined, "") },
-      { json: "EmailInvoiceCC", js: "emailInvoiceCC", typ: u(undefined, "") },
-      { json: "EmailOffer", js: "emailOffer", typ: u(undefined, "") },
-      { json: "EmailOfferBCC", js: "emailOfferBCC", typ: u(undefined, "") },
-      { json: "EmailOfferCC", js: "emailOfferCC", typ: u(undefined, "") },
-      { json: "EmailOrder", js: "emailOrder", typ: u(undefined, "") },
-      { json: "EmailOrderBCC", js: "emailOrderBCC", typ: u(undefined, "") },
-      { json: "EmailOrderCC", js: "emailOrderCC", typ: u(undefined, "") },
-      { json: "Fax", js: "fax", typ: u(undefined, null) },
-      { json: "GLN", js: "gln", typ: u(undefined, null) },
-      { json: "GLNDelivery", js: "glnDelivery", typ: u(undefined, null) },
+      { json: "Email", js: "email", typ: union(undefined, "") },
+      { json: "EmailInvoice", js: "emailInvoice", typ: union(undefined, "") },
+      {
+        json: "EmailInvoiceBCC",
+        js: "emailInvoiceBCC",
+        typ: union(undefined, ""),
+      },
+      {
+        json: "EmailInvoiceCC",
+        js: "emailInvoiceCC",
+        typ: union(undefined, ""),
+      },
+      { json: "EmailOffer", js: "emailOffer", typ: union(undefined, "") },
+      { json: "EmailOfferBCC", js: "emailOfferBCC", typ: union(undefined, "") },
+      { json: "EmailOfferCC", js: "emailOfferCC", typ: union(undefined, "") },
+      { json: "EmailOrder", js: "emailOrder", typ: union(undefined, "") },
+      { json: "EmailOrderBCC", js: "emailOrderBCC", typ: union(undefined, "") },
+      { json: "EmailOrderCC", js: "emailOrderCC", typ: union(undefined, "") },
+      { json: "Fax", js: "fax", typ: union(undefined, null) },
+      { json: "GLN", js: "gln", typ: union(undefined, null) },
+      { json: "GLNDelivery", js: "glnDelivery", typ: union(undefined, null) },
       {
         json: "InvoiceAdministrationFee",
         js: "invoiceAdministrationFee",
-        typ: u(undefined, null),
+        typ: union(undefined, null),
       },
       {
         json: "InvoiceDiscount",
         js: "invoiceDiscount",
-        typ: u(undefined, null),
+        typ: union(undefined, null),
       },
-      { json: "InvoiceFreight", js: "invoiceFreight", typ: u(undefined, null) },
-      { json: "InvoiceRemark", js: "invoiceRemark", typ: u(undefined, "") },
-      { json: "Name", js: "name", typ: u(undefined, "") },
+      {
+        json: "InvoiceFreight",
+        js: "invoiceFreight",
+        typ: union(undefined, null),
+      },
+      { json: "InvoiceRemark", js: "invoiceRemark", typ: union(undefined, "") },
+      { json: "Name", js: "name", typ: union(undefined, "") },
       {
         json: "OrganisationNumber",
         js: "organisationNumber",
-        typ: u(undefined, ""),
+        typ: union(undefined, ""),
       },
-      { json: "OurReference", js: "ourReference", typ: u(undefined, "") },
-      { json: "Phone1", js: "phone1", typ: u(undefined, "") },
-      { json: "Phone2", js: "phone2", typ: u(undefined, null) },
-      { json: "PriceList", js: "priceList", typ: u(undefined, "") },
-      { json: "Project", js: "project", typ: u(undefined, "") },
-      { json: "SalesAccount", js: "salesAccount", typ: u(undefined, null) },
+      { json: "OurReference", js: "ourReference", typ: union(undefined, "") },
+      { json: "Phone1", js: "phone1", typ: union(undefined, "") },
+      { json: "Phone2", js: "phone2", typ: union(undefined, null) },
+      { json: "PriceList", js: "priceList", typ: union(undefined, "") },
+      { json: "Project", js: "project", typ: union(undefined, "") },
+      { json: "SalesAccount", js: "salesAccount", typ: union(undefined, null) },
       {
         json: "ShowPriceVATIncluded",
         js: "showPriceVATIncluded",
-        typ: u(undefined, true),
+        typ: union(undefined, true),
       },
-      { json: "TermsOfDelivery", js: "termsOfDelivery", typ: u(undefined, "") },
-      { json: "TermsOfPayment", js: "termsOfPayment", typ: u(undefined, "") },
-      { json: "Type", js: "type", typ: u(undefined, "") },
-      { json: "VATNumber", js: "vatNumber", typ: u(undefined, "") },
-      { json: "VATType", js: "vatType", typ: u(undefined, "") },
+      {
+        json: "TermsOfDelivery",
+        js: "termsOfDelivery",
+        typ: union(undefined, ""),
+      },
+      {
+        json: "TermsOfPayment",
+        js: "termsOfPayment",
+        typ: union(undefined, ""),
+      },
+      { json: "Type", js: "type", typ: union(undefined, "") },
+      { json: "VATNumber", js: "vatNumber", typ: union(undefined, "") },
+      { json: "VATType", js: "vatType", typ: union(undefined, "") },
       {
         json: "VisitingAddress",
         js: "visitingAddress",
-        typ: u(undefined, null),
+        typ: union(undefined, null),
       },
-      { json: "VisitingCity", js: "visitingCity", typ: u(undefined, null) },
+      { json: "VisitingCity", js: "visitingCity", typ: union(undefined, null) },
       {
         json: "VisitingCountry",
         js: "visitingCountry",
-        typ: u(undefined, null),
+        typ: union(undefined, null),
       },
       {
         json: "VisitingCountryCode",
         js: "visitingCountryCode",
-        typ: u(undefined, null),
+        typ: union(undefined, null),
       },
       {
         json: "VisitingZipCode",
         js: "visitingZipCode",
-        typ: u(undefined, null),
+        typ: union(undefined, null),
       },
-      { json: "WWW", js: "www", typ: u(undefined, "") },
-      { json: "WayOfDelivery", js: "wayOfDelivery", typ: u(undefined, "") },
-      { json: "YourReference", js: "yourReference", typ: u(undefined, "") },
-      { json: "ZipCode", js: "zipCode", typ: u(undefined, "") },
+      { json: "WWW", js: "www", typ: union(undefined, "") },
+      { json: "WayOfDelivery", js: "wayOfDelivery", typ: union(undefined, "") },
+      { json: "YourReference", js: "yourReference", typ: union(undefined, "") },
+      { json: "ZipCode", js: "zipCode", typ: union(undefined, "") },
     ],
     false
   ),
-  Default: o(
+  Default: object(
     [
-      { json: "Invoice", js: "invoice", typ: u(undefined, "") },
-      { json: "Offer", js: "offer", typ: u(undefined, "") },
-      { json: "Order", js: "order", typ: u(undefined, "") },
-      { json: "CashInvoice", js: "cashInvoice", typ: u(undefined, "") },
+      { json: "Invoice", js: "invoice", typ: union(undefined, "") },
+      { json: "Offer", js: "offer", typ: union(undefined, "") },
+      { json: "Order", js: "order", typ: union(undefined, "") },
+      { json: "CashInvoice", js: "cashInvoice", typ: union(undefined, "") },
     ],
     false
   ),

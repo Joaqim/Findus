@@ -1,15 +1,18 @@
-export type CustomerVatTypes = "SEVAT" | "SEREVERSEDVAT" | "EUREVERSEDVAT" | "EUVAT" | "EXPORT";
+export type CustomerVatTypes =
+  | "SEVAT"
+  | "SEREVERSEDVAT"
+  | "EUREVERSEDVAT"
+  | "EUVAT"
+  | "EXPORT";
 
 export type CustomerType = "PRIVATE" | "COMPANY";
 
-// To parse this data:
-//
-//   import { Convert, Customer } from "./file";
-//
-//   const customer = Convert.toCustomer(json);
-//
-// These functions will throw an error if the JSON doesn't
-// match the expected interface, even if the JSON is valid.
+export interface Default {
+  invoice?: string;
+  offer?: string;
+  order?: string;
+  cashInvoice?: string;
+}
 
 export default interface Customer {
   url?: string;
@@ -75,11 +78,4 @@ export default interface Customer {
   wayOfDelivery?: string;
   yourReference?: string;
   zipCode?: string;
-}
-
-export interface Default {
-  invoice?: string;
-  offer?: string;
-  order?: string;
-  cashInvoice?: string;
 }

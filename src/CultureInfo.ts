@@ -18,10 +18,8 @@ abstract class CultureInfo {
   }
 
   public static isInsideEU(countryIso: string): boolean {
-    return EUCountries.includes(countryIso.toUpperCase())
+    return EUCountries.includes(countryIso.toUpperCase());
   }
-
-
 }
 
 export default CultureInfo;

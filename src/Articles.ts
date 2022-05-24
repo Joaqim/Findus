@@ -2,7 +2,7 @@ import type { Article, LineItem, WcOrder } from "./types";
 
 abstract class Articles {
   public static sanitizeDescriptionForFortnox(description: string): string {
-    const replacement = {
+    const replacement: Record<string, string> = {
       "–": "-",
       "~": "-",
       "{": "(",
@@ -12,7 +12,7 @@ abstract class Articles {
       "^": " ",
     };
     description.replace(/[[\]^{}~–]/g, (c) => {
-      return (replacement as any)[c];
+      return replacement[c];
     });
     return description;
   }

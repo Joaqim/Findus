@@ -1,13 +1,15 @@
 /* eslint-disable class-methods-use-this */
-import type { Rate } from "./Accounts";
 import Accounts from "./Accounts";
 import CultureInfo from "./CultureInfo";
-import LineItems from "./LineItems";
-import type { InvoiceInit, InvoiceRowInit, LineItem, WcOrder } from "./types";
-import type { TaxLabel } from "./WcOrders";
-import WcOrders from "./WcOrders";
+import type {
+  InvoiceInit,
+  InvoiceRowInit,
+  LineItem,
+  Tax,
+  WcOrder,
+} from "./types";
 
-export default abstract class Invoices {
+export default class Verification {
   private sanitizeCountryName(countryName: string): string {
     switch (countryName) {
       case "PRC":
@@ -15,28 +17,6 @@ export default abstract class Invoices {
       default:
         return countryName;
     }
-  }
-
-  public static verifyRateForItem(
-    order: WcOrder,
-    rate: Rate,
-    item: LineItem
-  ): TaxLabel {
-    if (rate.vat === 0) {
-      return { vat: 0, label: "0% Vat" };
-    }
-
-    const isStandard = item.taxClass !== "reduced-rate";
-    const taxRates = WcOrders.getTaxRateLabels(order.taxLines);
-
-    const taxLabel = isStandard ? taxRates.standard : taxRates.reduced;
-
-    if (rate.vat !== taxLabel.vat) {
-      throw new Error(
-        `VAT Rate miss-match, expected value: ${rate.vat} VAT, but WooCommerce gave: ${taxLabel.vat}% VAT, with label: ${taxLabel.label}`
-      );
-    }
-    return taxLabel;
   }
 
   public static getPaymentMethod(order: WcOrder): "Stripe" | "PayPal" {
@@ -61,10 +41,21 @@ export default abstract class Invoices {
     );
   }
 
-  // TODO: Add PaymentFee to Verifikat / Accrual Invoice
-  /*
+  public static getTotalWithTax(item: LineItem): number {
+    return item.price + Verification.getTotalWithTax(item);
+  }
+
+  public static getAccurateTaxTotal(item: LineItem): number {
+    let result = 0;
+    item.taxes.forEach((tax: Tax) => {
+      result += parseFloat(tax.total);
+    });
+    return result;
+  }
+
+  /* TODO: Add PaymentFee to Verifikat
   public static addPaymentFee(
-    invoiceRows: InvoiceRowInit[], // AccrualInvoiceRows?
+    invoiceRows: InvoiceRowInit[],
     order: WcOrder,
     rate: Rate,
     paymentMethod: "Stripe" | "PayPal"
@@ -86,21 +77,7 @@ export default abstract class Invoices {
     if (!feeData || parseFloat(feeData.value) < 0) {
       throw new Error(`Unexpected Fee: ${paymentMethod}`);
     }
-    const fee = parseFloat(feeData.value);
 
-    if (fee <= 0 || fee >= parseFloat(order.total)) {
-      throw new Error(`Unexpected fee amount for '${feeData.key}': ${fee}`);
-    }
-
-    let salesAccount = Accounts.getSalesAccount(order.billing.country)
-
-    invoiceRows.push({
-                accountNumber:
-                credit: fee,
-                info: $"{paymentMethod} Avgift - Utgående"
-    });
-
-    invoiceRows.push({accountNumber: 6570, debit: fee, info: `${paymentMethod} Avgift`});
   }
   */
 
@@ -118,13 +95,13 @@ export default abstract class Invoices {
         order.billing.country
       );
 
-      const paymentMethod = Invoices.getPaymentMethod(order);
+      const paymentMethod = Verification.getPaymentMethod(order);
 
       const shippingCost = parseFloat(order.shippingTotal);
 
       const invoiceRows: InvoiceRowInit[] = [];
 
-      let highestRate = 0;
+      let highestVat = 0;
 
       for (const item of order.lineItems) {
         const isReduced = item.taxClass !== "reduced-rate";
@@ -134,8 +111,8 @@ export default abstract class Invoices {
           paymentMethod
         );
 
-        if (vat > highestRate) {
-          highestRate = vat;
+        if (vat > highestVat) {
+          highestVat = vat;
         }
 
         invoiceRows.push({
@@ -143,7 +120,7 @@ export default abstract class Invoices {
           vat,
           articleNumber: item.sku,
           deliveredQuantity: item.quantity.toString(),
-          price: LineItems.getTotalWithTax(item),
+          price: Verification.getTotalWithTax(item),
         });
       }
 

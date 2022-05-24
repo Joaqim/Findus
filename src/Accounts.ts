@@ -13,15 +13,6 @@ export interface Account {
   reduced?: Rate;
 }
 
-type Entries<T> = Array<
-  {
-    [K in keyof T]: [K, T[K]];
-  }[keyof T]
->;
-
-const entries = <Object_>(object: Object_): Entries<Object_> =>
-  Object.entries(object) as Entries<Object_>;
-
 abstract class Accounts {
   private static readonly vat = createMapFromRecord<string, Account>(
     VatAccounts
