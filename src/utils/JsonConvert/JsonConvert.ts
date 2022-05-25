@@ -154,40 +154,40 @@ function uncast<T>(value: T, typ: any): any {
   return transform(value, typ, jsToJSONProperties);
 }
 
-function r(name: string) {
+function reference(name: string) {
   return { ref: name };
 }
 
 export default class JsonConvert {
   public static toArticle(json: string): Article {
-    return cast(JSON.parse(json), r("Article"));
+    return cast(JSON.parse(json),reference("Article"));
   }
 
   public static articleToJson(value: Article): string {
-    return JSON.stringify(uncast(value, r("Article")), null, 2);
+    return JSON.stringify(uncast(value,reference("Article")), null, 2);
   }
 
   public static toInvoice(json: string): Invoice {
-    return cast(JSON.parse(json), r("Invoice"));
+    return cast(JSON.parse(json),reference("Invoice"));
   }
 
   public static invoiceToJson(value: Invoice): string {
-    return JSON.stringify(uncast(value, r("Invoice")), null, 2);
+    return JSON.stringify(uncast(value,reference("Invoice")), null, 2);
   }
 
   public static toWcOrder(json: string): WcOrder {
-    return cast(JSON.parse(json), r("WcOrder"));
+    return cast(JSON.parse(json),reference("WcOrder"));
   }
 
   public static wcOrderToJson(value: WcOrder): string {
-    return JSON.stringify(uncast(value, r("WcOrder")), null, 2);
+    return JSON.stringify(uncast(value,reference("WcOrder")), null, 2);
   }
 
   public static toCustomer(json: string): Customer {
-    return cast(JSON.parse(json), r("Customer"));
+    return cast(JSON.parse(json),reference("Customer"));
   }
 
   public static customerToJson(value: Customer): string {
-    return JSON.stringify(uncast(value, r("Customer")), null, 2);
+    return JSON.stringify(uncast(value,reference("Customer")), null, 2);
   }
 }

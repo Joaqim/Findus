@@ -496,4 +496,164 @@ export default {
     ],
     false
   ),
+  CouponLine: object(
+    [
+      { json: "id", js: "id", typ: union(undefined, 0) },
+      { json: "code", js: "code", typ: union(undefined, "") },
+      { json: "discount", js: "discount", typ: union(undefined, "") },
+      { json: "discount_tax", js: "discountTax", typ: union(undefined, "") },
+      {
+        json: "meta_data",
+        js: "metaData",
+        typ: union(undefined, array(reference("CouponLineMetaDatum"))),
+      },
+    ],
+    false
+  ),
+  CouponLineMetaDatum: object(
+    [
+      { json: "id", js: "id", typ: union(undefined, 0) },
+      { json: "key", js: "key", typ: union(undefined, "") },
+      {
+        json: "value",
+        js: "value",
+        typ: union(undefined, reference("DisplayValueClass")),
+      },
+      { json: "display_key", js: "displayKey", typ: union(undefined, "") },
+      {
+        json: "display_value",
+        js: "displayValue",
+        typ: union(undefined, reference("DisplayValueClass")),
+      },
+    ],
+    false
+  ),
+  DisplayValueClass: object(
+    [
+      { json: "id", js: "id", typ: union(undefined, 0) },
+      { json: "code", js: "code", typ: union(undefined, "") },
+      { json: "amount", js: "amount", typ: union(undefined, "") },
+      { json: "status", js: "status", typ: union(undefined, "") },
+      {
+        json: "date_created",
+        js: "dateCreated",
+        typ: union(undefined, reference("DateCreatedClass")),
+      },
+      {
+        json: "date_modified",
+        js: "dateModified",
+        typ: union(undefined, reference("DateCreatedClass")),
+      },
+      { json: "date_expires", js: "dateExpires", typ: union(undefined, null) },
+      { json: "discount_type", js: "discountType", typ: union(undefined, "") },
+      { json: "description", js: "description", typ: union(undefined, "") },
+      { json: "usage_count", js: "usageCount", typ: union(undefined, 0) },
+      {
+        json: "individual_use",
+        js: "individualUse",
+        typ: union(undefined, true),
+      },
+      {
+        json: "product_ids",
+        js: "productIDS",
+        typ: union(undefined, array("any")),
+      },
+      {
+        json: "excluded_product_ids",
+        js: "excludedProductIDS",
+        typ: union(undefined, array("any")),
+      },
+      { json: "usage_limit", js: "usageLimit", typ: union(undefined, 0) },
+      {
+        json: "usage_limit_per_user",
+        js: "usageLimitPerUser",
+        typ: union(undefined, 0),
+      },
+      {
+        json: "limit_usage_to_x_items",
+        js: "limitUsageToXItems",
+        typ: union(undefined, 0),
+      },
+      {
+        json: "free_shipping",
+        js: "freeShipping",
+        typ: union(undefined, true),
+      },
+      {
+        json: "product_categories",
+        js: "productCategories",
+        typ: union(undefined, array("any")),
+      },
+      {
+        json: "excluded_product_categories",
+        js: "excludedProductCategories",
+        typ: union(undefined, array("any")),
+      },
+      {
+        json: "exclude_sale_items",
+        js: "excludeSaleItems",
+        typ: union(undefined, true),
+      },
+      {
+        json: "minimum_amount",
+        js: "minimumAmount",
+        typ: union(undefined, ""),
+      },
+      {
+        json: "maximum_amount",
+        js: "maximumAmount",
+        typ: union(undefined, ""),
+      },
+      {
+        json: "email_restrictions",
+        js: "emailRestrictions",
+        typ: union(undefined, array("any")),
+      },
+      { json: "virtual", js: "virtual", typ: union(undefined, true) },
+      {
+        json: "meta_data",
+        js: "metaData",
+        typ: union(undefined, array(reference("DisplayValueMetaDatum"))),
+      },
+    ],
+    false
+  ),
+  DateCreatedClass: object(
+    [
+      { json: "date", js: "date", typ: union(undefined, Date) },
+      { json: "timezone_type", js: "timezoneType", typ: union(undefined, 0) },
+      { json: "timezone", js: "timezone", typ: union(undefined, "") },
+    ],
+    false
+  ),
+  DisplayValueMetaDatum: object(
+    [
+      { json: "id", js: "id", typ: union(undefined, 0) },
+      { json: "key", js: "key", typ: union(undefined, "") },
+      {
+        json: "value",
+        js: "value",
+        typ: union(undefined, union(array("any"), reference("ValueValue"), "")),
+      },
+    ],
+    false
+  ),
+  ValueValue: object(
+    [
+      {
+        json: "5908",
+        js: "the5908",
+        typ: union(undefined, reference("The5908")),
+      },
+    ],
+    false
+  ),
+  The5908: object(
+    [
+      { json: "product_id", js: "productID", typ: union(undefined, 0) },
+      { json: "variation_id", js: "variationID", typ: union(undefined, 0) },
+      { json: "quantity", js: "quantity", typ: union(undefined, 0) },
+    ],
+    false
+  ),
 };

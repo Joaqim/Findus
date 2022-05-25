@@ -1,5 +1,7 @@
 export * from "./Article";
 export type { default as Article } from "./Article";
+export * from "./CouponLine";
+export type { default as CouponLine } from "./CouponLine";
 export * from "./Customer";
 export type { default as Customer } from "./Customer";
 export * from "./Invoice";
