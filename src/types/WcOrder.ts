@@ -52,12 +52,12 @@ export interface Links {
 
 export interface TaxLine {
   id: number;
-  rateCode: string;
-  rateID: number;
+  rateCode?: string;
+  rateID?: number;
   label: string;
-  compound: boolean;
-  taxTotal: string;
-  shippingTaxTotal: string;
+  compound?: boolean;
+  taxTotal?: string;
+  shippingTaxTotal?: string;
   metaData?: MetaData[];
 }
 

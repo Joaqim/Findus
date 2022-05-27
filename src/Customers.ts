@@ -14,38 +14,38 @@ abstract class Customers {
 
   public static createCustomer(order: WcOrder, invoice: Invoice): Customer {
     const {
-      address1,
-      address2,
-      city,
-      zipCode,
+      Address1,
+      Address2,
+      City,
+      ZipCode,
 
-      deliveryName,
-      deliveryAddress1,
-      deliveryAddress2,
-      deliveryCity,
-      deliveryZipCode,
+      DeliveryName,
+      DeliveryAddress1,
+      DeliveryAddress2,
+      DeliveryCity,
+      DeliveryZipCode,
     } = invoice;
 
-    const countryCode = order.shipping.country.toUpperCase();
+    const CountryCode = order.shipping.country.toUpperCase();
 
     return {
-      name: invoice.customerName,
-      type: "PRIVATE",
-      email: order.billing.email,
-      countryCode,
+      Name: invoice.CustomerName,
+      Type: "PRIVATE",
+      Email: order.billing.email,
+      CountryCode,
 
-      vatType: Customers.getVatType(countryCode),
+      VATType: Customers.getVatType(CountryCode),
 
-      address1,
-      address2,
-      city,
-      zipCode,
+      Address1,
+      Address2,
+      City,
+      ZipCode,
 
-      deliveryName,
-      deliveryAddress1,
-      deliveryAddress2,
-      deliveryCity,
-      deliveryZipCode,
+      DeliveryName,
+      DeliveryAddress1,
+      DeliveryAddress2,
+      DeliveryCity,
+      DeliveryZipCode,
     };
   }
 }

@@ -1,4 +1,5 @@
-import type { TaxLine } from "./types";
+import type { Rate } from "./Accounts";
+import type { LineItem, TaxLine, WcOrder } from "./types";
 
 export interface TaxLabel {
   vat: number;
@@ -6,11 +7,64 @@ export interface TaxLabel {
 }
 
 abstract class WcOrders {
+  public static getPaymentMethod(order: WcOrder): "Stripe" | "PayPal" {
+    const { paymentMethod } = order;
+
+    if (!paymentMethod || paymentMethod === "") {
+      throw new Error("Beställningen behöver bokföras manuellt.");
+    }
+    // NOTE: Matches stripe & stripe_{bancontant,ideal,sofort}, but not *_stripe
+
+    if (/^stripe\S*/i.test(paymentMethod)) {
+      return "Stripe";
+    }
+    // NOTE: Matches paypal & (ppec_paypal)_paypal, but not paypal_*
+
+    if (/^\S*paypal$/i.test(paymentMethod)) {
+      return "PayPal";
+    }
+
+    throw new Error(
+      `Unexpected Payment Method: '${paymentMethod}', '${order.paymentMethodTitle}'`
+    );
+  }
+
+  public static verifyRateForItem(
+    order: WcOrder,
+    rate: Rate,
+    item: LineItem
+  ): TaxLabel {
+    if (rate.vat === 0) {
+      return { vat: 0, label: "0% Vat" };
+    }
+
+    const isStandard = item.taxClass !== "reduced-rate";
+    const taxRates = WcOrders.getTaxRateLabels(order.taxLines);
+
+    const taxLabel = isStandard ? taxRates.standard : taxRates.reduced;
+
+    if (rate.vat !== taxLabel.vat) {
+      throw new Error(
+        `VAT Rate miss-match, expected value: ${rate.vat} VAT, but WooCommerce gave: ${taxLabel.vat}% VAT, with label: ${taxLabel.label}`
+      );
+    }
+    return taxLabel;
+  }
+
   public static getTaxRate(tax: TaxLine): number {
     const taxLabel = tax.label;
 
     try {
-      return parseFloat(taxLabel.slice(taxLabel.indexOf("%"))) / 100;
+      // eslint-disable-next-line unicorn/no-unsafe-regex
+      const regex = /(?:\d+(?:\.\d*)?|\.\d+)%/;
+      const vat = regex.exec(taxLabel);
+
+      if (!vat || vat.length !== 1) {
+        throw new Error(
+          `Could not parse VAT Percentage from Tax Label: ${taxLabel}`
+        );
+      }
+      return parseFloat(vat[0]) / 100;
     } catch {
       throw new Error(`Unexpected Tax label: ${taxLabel}`);
     }
@@ -25,12 +79,11 @@ abstract class WcOrders {
       const vat = WcOrders.getTaxRate(tax);
       const taxLabel = { vat, label: tax.label };
 
-      // Push lower or equal vat on bottom
+      // Make sure lowest VAT is last value in tuple
       if (labels[0]?.vat >= vat) labels.push(taxLabel);
       else labels = [taxLabel, ...labels];
     });
 
-    /* TODO: Make sure this is correct, even if vat is equal between 'reduced' and 'standard' */
     return { standard: labels[0], reduced: labels[1] };
   }
 }

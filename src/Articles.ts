@@ -28,9 +28,9 @@ abstract class Articles {
 
   public static createArticle(item: LineItem): Article {
     return {
-      articleNumber: item.sku,
-      description: Articles.sanitizeDescriptionForFortnox(item.name),
-      type: "STOCK",
+      ArticleNumber: item.sku,
+      Description: Articles.sanitizeDescriptionForFortnox(item.name),
+      Type: "STOCK",
     } as Article;
   }
 }
