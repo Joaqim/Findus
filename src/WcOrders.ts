@@ -1,5 +1,6 @@
 import type { Rate } from "./Accounts";
-import type { LineItem, TaxLine, WcOrder } from "./types";
+import CultureInfo from "./CultureInfo";
+import type { Customer, LineItem, TaxLine, WcOrder } from "./types";
 
 export interface TaxLabel {
   vat: number;
@@ -85,6 +86,72 @@ abstract class WcOrders {
     });
 
     return { standard: labels[0], reduced: labels[1] };
+  }
+
+  public static tryGetDocumentLink(order: WcOrder): string {
+    // Try to get Document link from metadata
+    const pdfLink = order.metaData.find(
+      (entry) => entry.key === "_wcpdf_document_link"
+    )?.value;
+
+    if (pdfLink && pdfLink !== "") {
+      return pdfLink;
+    } else {
+      // Try to get Order key from metadata
+      const orderKey = order.metaData.find(
+        (entry) => entry.key === "_wc_order_key"
+      );
+
+      if (!orderKey) {
+        throw new Error(
+          `Order: ${order.id} is missing document_link and order_key`
+        );
+      }
+      return `https://gamerbulk.com/wp-admin/admin-ajax.php?action=generate_wpo_wcpdf&template_type=invoice&order_ids=${order.id}&order_key=${orderKey}`;
+    }
+  }
+  public static tryGetInvoiceReference(order: WcOrder): number | undefined {
+    let ref = order.metaData.find(
+      (entry) => entry.key === "_fortnox_invoice_number"
+    )?.value;
+    if (!ref) {
+      throw new Error(
+        `Order: ${order.id} is missing '_fortnox_invoice_number' referenec in meta data.`
+      );
+    }
+    return parseInt(ref);
+  }
+
+  public static tryCanBeRefunded(order: WcOrder) {
+    if (order.status === "completed" && order.refunds?.length === 0) {
+      throw new Error(
+        "Order status is 'completed' and is not partially refunded."
+      );
+    } else if (order.status !== "refunded") {
+      throw new Error(
+        `Unexpected order status: '${order.status}', expected 'refunded' or alternatively 'completed' with partial refund.`
+      );
+    }
+  }
+
+  public static getCustomerName(order: WcOrder): string {
+    return `${order.billing.firstName} ${order.billing.lastName}`.trim();
+  }
+
+  public static tryGetAddresses(order: WcOrder): Customer {
+    return {
+      Country: CultureInfo.tryGetEnglishName(order.billing.country),
+      Address1: order.billing.address1,
+      Address2: order.billing.address2,
+      ZipCode: order.billing.postcode,
+      City: order.billing.city,
+
+      DeliveryCountry: CultureInfo.tryGetEnglishName(order.shipping.country),
+      DeliveryAddress1: order.shipping.address1,
+      DeliveryAddress2: order.shipping.address2,
+      DeliveryZipCode: order.shipping.postcode,
+      DeliveryCity: order.shipping.city,
+    };
   }
 }
 

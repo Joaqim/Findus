@@ -1,6 +1,9 @@
 import SalesAccounts from "./data/SalesAccounts";
 import VatAccounts from "./data/VATAccounts";
+import LineItems from "./LineItems";
+import { LineItem, WcOrder } from "./types";
 import createMapFromRecord from "./utils/createMapFromRecord";
+import WcOrders from "./WcOrders";
 
 export interface Rate {
   vat: number;
@@ -27,7 +30,7 @@ abstract class Accounts {
     isReduced = false,
     paymentMethod?: string | undefined
   ): Rate {
-    const account = this.getSalesAccount(countryIso, paymentMethod);
+    const account = this.tryGetSalesAccount(countryIso, paymentMethod);
 
     if (isReduced) {
       return account.reduced ?? account.standard;
@@ -35,7 +38,24 @@ abstract class Accounts {
     return account.standard;
   }
 
-  public static getSalesAccount(
+  public static tryGetSalesAccountForOrder(order: WcOrder): Account {
+    const countryIso = order.billing.country;
+    const paymentMethod = WcOrders.getPaymentMethod(order);
+
+    return this.tryGetSalesAccount(countryIso, paymentMethod);
+  }
+
+  public static tryGetSalesRateForItem(order: WcOrder, item: LineItem): Rate {
+    const acc = Accounts.tryGetSalesAccountForOrder(order);
+    if(LineItems.hasReducedRate(item)) {
+      return acc.reduced ?? acc.standard;
+    } else {
+      return acc.standard;
+    }
+
+  }
+
+  public static tryGetSalesAccount(
     countryIso: string,
     paymentMethod?: string
   ): Account {

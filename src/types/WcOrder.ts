@@ -71,6 +71,19 @@ export interface ShippingLine {
   metaData?: MetaData[];
 }
 
+export interface Refund {
+  id?: number;
+  dateCreated?: Date;
+  dateCreatedGmt?: Date;
+  amount?: string;
+  reason?: string;
+  refundedBy?: number;
+  refundedPayment?: boolean;
+  metaData?: MetaData[];
+  lineItems?: LineItem[];
+  links?: Links;
+}
+
 export default interface WcOrder {
   id: number;
   parentID: number;

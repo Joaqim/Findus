@@ -2,32 +2,107 @@
 import Accounts from "./Accounts";
 import CultureInfo from "./CultureInfo";
 import LineItems from "./LineItems";
-import type { InvoiceInit, InvoiceRowInit, WcOrder } from "./types";
+import type { Invoice, InvoiceRow, Refund, WcOrder } from "./types";
+import WcOrders from "./WcOrders";
 
 export default abstract class Invoices {
-  public static getPaymentMethod(order: WcOrder): "Stripe" | "PayPal" {
-    const { paymentMethod } = order;
-
-    if (!paymentMethod || paymentMethod === "") {
-      throw new Error("Beställningen behöver bokföras manuellt.");
+  public static tryCanBeRefunded(invoice: Invoice) {
+    if (invoice.Cancelled === true) {
+      throw new Error("Invoice has already been Cancelled.");
+    } else if (invoice.Booked == true) {
+      throw new Error("Invoice has not been Booked in Fortnox.");
+    } else if (invoice.CreditInvoiceReference) {
+      throw new Error("Invoice has an existing Credit Invoice");
     }
-    // NOTE: Matches stripe & stripe_{bancontant,ideal,sofort}, but not *_stripe
-
-    if (/^stripe\S*/i.test(paymentMethod)) {
-      return "Stripe";
-    }
-    // NOTE: Matches paypal & (ppec_paypal)_paypal, but not paypal_*
-
-    if (/^\S*paypal$/i.test(paymentMethod)) {
-      return "PayPal";
-    }
-
-    throw new Error(
-      `Unexpected Payment Method: '${paymentMethod}', '${order.paymentMethodTitle}'`
-    );
   }
 
-  public createInvoice(order: WcOrder, currencyRate = 1): InvoiceInit | null {
+  public tryCreatePartialRefund(
+    order: WcOrder,
+    /*invoice: Invoice,*/
+    creditInvoice: Invoice,
+    refunds: Refund[]
+  ): Invoice {
+    if (refunds.length === 0) {
+      throw new Error("Order does not have refunds.");
+    } else if (refunds.length !== 1) {
+      throw new Error(
+        "Partial Refund for previously refunded order is not supported."
+      );
+    }
+
+    // TODO: this shouldn't be caught here - the credit invoice is
+    // expected to be completely new.
+    if (
+      creditInvoice.Credit === false ||
+      creditInvoice.InvoiceRows?.length > 0
+    ) {
+      throw new Error("Credit Invoice for Partial refund is invalid.");
+    }
+
+    for (const refund of refunds) {
+      // TODO: this might not be neccessary
+      // TODO: make type definitions non-opts match Fortnox specification.
+      if (!creditInvoice.InvoiceRows) {
+        creditInvoice.InvoiceRows = [];
+      }
+
+      if(!refund.lineItems) {
+        throw new Error("Order is not partially refunded.")
+      }
+
+      for (const item of refund.lineItems) {
+        const acc = Accounts.tryGetSalesRateForItem(order, item);
+        creditInvoice.InvoiceRows.push({
+          AccountNumber: acc.accountNumber,
+          ArticleNumber: item.sku,
+          VAT: acc.vat,
+          DeliveredQuantity: item.quantity,
+          Price: LineItems.getTotalWithTax(item),
+        });
+      }
+    }
+
+    return creditInvoice;
+  }
+
+  public tryCreateRefund(
+    order: WcOrder,
+    currencyRate: number,
+    customerNumber?: string
+  ): Invoice {
+    const invoiceRows: InvoiceRow[] = [];
+
+    order.lineItems.forEach((item): InvoiceRow => {
+      const acc = Accounts.tryGetSalesRateForItem(order, item);
+      return {
+        ArticleNumber: item.sku,
+        DeliveredQuantity: item.quantity,
+        AccountNumber: acc.accountNumber,
+        Price: LineItems.getTotalWithTax(item),
+      };
+    });
+    return {
+      InvoiceType: "CASHINVOICE",
+      InvoiceDate: new Date(),
+      PaymentWay: "CARD",
+      VATIncluded: true,
+
+      Currency: order.currency,
+      CurrencyRate: currencyRate,
+
+      CustomerNumber: customerNumber,
+      YourOrderNumber: order.id.toString(),
+
+      OurReference: "Findus-JS",
+
+      InvoiceRows: invoiceRows,
+
+      CustomerName: WcOrders.getCustomerName(order),
+      ...WcOrders.tryGetAddresses(order),
+    };
+  }
+
+  public createInvoice(order: WcOrder, currencyRate = 1): Invoice | null {
     const currency = order.currency;
 
     if (currency.toUpperCase() === "SEK" && currencyRate !== 1)
@@ -41,11 +116,11 @@ export default abstract class Invoices {
         order.billing.country
       );
 
-      const paymentMethod = Invoices.getPaymentMethod(order);
+      const paymentMethod = WcOrders.getPaymentMethod(order);
 
       const shippingCost = parseFloat(order.shippingTotal);
 
-      const invoiceRows: InvoiceRowInit[] = [];
+      const invoiceRows: InvoiceRow[] = [];
 
       let highestRate = 0;
 
@@ -65,38 +140,29 @@ export default abstract class Invoices {
           AccountNumber: accountNumber,
           VAT: vat,
           ArticleNumber: item.sku,
-          DeliveredQuantity: item.quantity.toString(),
+          DeliveredQuantity: item.quantity,
           Price: LineItems.getTotalWithTax(item),
         });
       }
 
-      const invoice: InvoiceInit = {
+      const invoice: Invoice = {
         InvoiceType: "CASHINVOICE",
         InvoiceDate: order.datePaid,
         PaymentWay: "CARD",
+
         VATIncluded: true,
+
         Currency: currency,
         CurrencyRate: currencyRate,
         YourOrderNumber: order.id.toString(),
+
         OurReference: "Findus-JS",
         // externalInvoiceReference1 = order.id.toString()
         InvoiceRows: [],
 
         // Customer
-        CustomerName:
-          `${order.billing.firstName} ${order.billing.lastName}`.trim(),
-
-        Country: country,
-        Address1: order.billing.address1,
-        Address2: order.billing.address2,
-        ZipCode: order.billing.postcode,
-        City: order.billing.city,
-
-        DeliveryCountry: deliveryCountry,
-        DeliveryAddress1: order.shipping.address1,
-        DeliveryAddress2: order.shipping.address2,
-        DeliveryZipCode: order.shipping.postcode,
-        DeliveryCity: order.shipping.city,
+        CustomerName: WcOrders.getCustomerName(order),
+        ...WcOrders.tryGetAddresses(order),
 
         // Shipping cost
         Freight: shippingCost,

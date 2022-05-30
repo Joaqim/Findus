@@ -12,6 +12,15 @@ abstract class LineItems {
     });
     return result;
   }
+
+  public static hasReducedRate(item: LineItem): boolean {
+    if (item.taxClass === "reduced-rate" || item.taxClass === "normal-rate") {
+      throw new Error(
+        "Tax Class in Items of Order are only expected to have either 'normal-rate' or 'reduced-rate'"
+      );
+    }
+    return item.taxClass === "reduced-rate";
+  }
 }
 
 export default LineItems;
