@@ -134,23 +134,38 @@ abstract class WcOrders {
     }
   }
 
-  public static getCustomerName(order: WcOrder): string {
-    return `${order.billing.firstName} ${order.billing.lastName}`.trim();
+  public static tryGetCustomerName(order: WcOrder): string {
+    if (order.billing.firstName || order.billing.lastName) {
+      return `${order.billing.firstName} ${order.billing.lastName}`.trim();
+    } else if (order.shipping.firstName || order.shipping.lastName) {
+      return `${order.shipping.firstName} ${order.shipping.lastName}`.trim();
+    } else {
+      throw new Error(`Order: ${order.id} is missing customer name for billing`);
+    }
+  }
+  public static tryGetDeliveryName(order: WcOrder): string {
+    if (order.shipping.firstName || order.shipping.lastName) {
+      return `${order.shipping.firstName} ${order.shipping.lastName}`.trim();
+    } else if (order.billing.firstName || order.billing.lastName) {
+      return `${order.billing.firstName} ${order.billing.lastName}`.trim();
+    } else {
+      throw new Error(`Order: ${order.id} is missing customer name for delivery`);
+    }
   }
 
   public static tryGetAddresses(order: WcOrder): Customer {
     return {
       Country: CultureInfo.tryGetEnglishName(order.billing.country),
-      Address1: order.billing.address1,
-      Address2: order.billing.address2,
-      ZipCode: order.billing.postcode,
-      City: order.billing.city,
+      Address1: order.billing.address1 ?? order.shipping.address1,
+      Address2: order.billing.address2 ?? order.shipping.address2,
+      ZipCode: order.billing.postcode ?? order.shipping.postcode,
+      City: order.billing.city ?? order.shipping.city,
 
       DeliveryCountry: CultureInfo.tryGetEnglishName(order.shipping.country),
-      DeliveryAddress1: order.shipping.address1,
-      DeliveryAddress2: order.shipping.address2,
-      DeliveryZipCode: order.shipping.postcode,
-      DeliveryCity: order.shipping.city,
+      DeliveryAddress1: order.shipping.address1 ?? order.billing.address1,
+      DeliveryAddress2: order.shipping.address2 ?? order.billing.address2,
+      DeliveryZipCode: order.shipping.postcode ?? order.billing.postcode,
+      DeliveryCity: order.shipping.city ?? order.billing.city,
     };
   }
 }

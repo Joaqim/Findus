@@ -1,6 +1,5 @@
 /* eslint-disable class-methods-use-this */
 import Accounts from "./Accounts";
-import CultureInfo from "./CultureInfo";
 import LineItems from "./LineItems";
 import type { Invoice, InvoiceRow, Refund, WcOrder } from "./types";
 import WcOrders from "./WcOrders";
@@ -16,7 +15,7 @@ export default abstract class Invoices {
     }
   }
 
-  public tryCreatePartialRefund(
+  public static tryCreatePartialRefund(
     order: WcOrder,
     /*invoice: Invoice,*/
     creditInvoice: Invoice,
@@ -46,8 +45,8 @@ export default abstract class Invoices {
         creditInvoice.InvoiceRows = [];
       }
 
-      if(!refund.lineItems) {
-        throw new Error("Order is not partially refunded.")
+      if (!refund.lineItems) {
+        throw new Error("Order is not partially refunded.");
       }
 
       for (const item of refund.lineItems) {
@@ -65,7 +64,7 @@ export default abstract class Invoices {
     return creditInvoice;
   }
 
-  public tryCreateRefund(
+  public static tryCreateRefund(
     order: WcOrder,
     currencyRate: number,
     customerNumber?: string
@@ -82,94 +81,98 @@ export default abstract class Invoices {
       };
     });
     return {
-      InvoiceType: "CASHINVOICE",
+      ...this.tryGenerateBoilerplateInvoice(order),
       InvoiceDate: new Date(),
-      PaymentWay: "CARD",
-      VATIncluded: true,
 
       Currency: order.currency,
       CurrencyRate: currencyRate,
 
       CustomerNumber: customerNumber,
+
+      InvoiceRows: invoiceRows,
+    };
+  }
+
+  private static tryGenerateBoilerplateInvoice(
+    order: WcOrder
+  ): Omit<Invoice, "Currency" | "CurrencyRate"> {
+    return {
+      InvoiceType: "CASHINVOICE",
+      PaymentWay: "CARD",
+
+      VATIncluded: true,
       YourOrderNumber: order.id.toString(),
 
       OurReference: "Findus-JS",
+      // externalInvoiceReference1 = order.id.toString()
+      InvoiceRows: [],
 
-      InvoiceRows: invoiceRows,
+      // Customer
+      CustomerName: WcOrders.tryGetCustomerName(order),
+      DeliveryName: WcOrders.tryGetDeliveryName(order),
 
-      CustomerName: WcOrders.getCustomerName(order),
       ...WcOrders.tryGetAddresses(order),
     };
   }
 
-  public createInvoice(order: WcOrder, currencyRate = 1): Invoice | null {
+  public static tryCreateInvoice(order: WcOrder, currencyRate = 1): Invoice | null {
     const currency = order.currency;
 
     if (currency.toUpperCase() === "SEK" && currencyRate !== 1)
       throw new Error(`Unexpected Currency Rate for SEK: ${currencyRate}`);
 
-    // eslint-disable-next-line no-useless-catch
-    try {
-      const countryIso = order.billing.country;
-      const country = CultureInfo.tryGetEnglishName(countryIso);
-      const deliveryCountry = CultureInfo.tryGetEnglishName(
-        order.billing.country
+    const countryIso = order.billing.country;
+
+    const paymentMethod = WcOrders.getPaymentMethod(order);
+
+    const shippingCost = parseFloat(order.shippingTotal);
+
+    const invoiceRows: InvoiceRow[] = [];
+
+    let highestRate = 0;
+
+    for (const item of order.lineItems) {
+      const isReduced = item.taxClass !== "reduced-rate";
+      const { vat, accountNumber } = Accounts.getRate(
+        countryIso,
+        isReduced,
+        paymentMethod
       );
 
-      const paymentMethod = WcOrders.getPaymentMethod(order);
-
-      const shippingCost = parseFloat(order.shippingTotal);
-
-      const invoiceRows: InvoiceRow[] = [];
-
-      let highestRate = 0;
-
-      for (const item of order.lineItems) {
-        const isReduced = item.taxClass !== "reduced-rate";
-        const { vat, accountNumber } = Accounts.getRate(
-          countryIso,
-          isReduced,
-          paymentMethod
-        );
-
-        if (vat > highestRate) {
-          highestRate = vat;
-        }
-
-        invoiceRows.push({
-          AccountNumber: accountNumber,
-          VAT: vat,
-          ArticleNumber: item.sku,
-          DeliveredQuantity: item.quantity,
-          Price: LineItems.getTotalWithTax(item),
-        });
+      if (vat > highestRate) {
+        highestRate = vat;
       }
 
-      const invoice: Invoice = {
-        InvoiceType: "CASHINVOICE",
-        InvoiceDate: order.datePaid,
-        PaymentWay: "CARD",
-
-        VATIncluded: true,
-
-        Currency: currency,
-        CurrencyRate: currencyRate,
-        YourOrderNumber: order.id.toString(),
-
-        OurReference: "Findus-JS",
-        // externalInvoiceReference1 = order.id.toString()
-        InvoiceRows: [],
-
-        // Customer
-        CustomerName: WcOrders.getCustomerName(order),
-        ...WcOrders.tryGetAddresses(order),
-
-        // Shipping cost
-        Freight: shippingCost,
-      };
-      return invoice;
-    } catch (error) {
-      throw error;
+      invoiceRows.push({
+        AccountNumber: accountNumber,
+        VAT: vat,
+        ArticleNumber: item.sku,
+        DeliveredQuantity: item.quantity,
+        Price: LineItems.getTotalWithTax(item),
+      });
     }
+
+    const invoice: Invoice = {
+      ...this.tryGenerateBoilerplateInvoice(order),
+
+      InvoiceDate: order.datePaid,
+
+      Currency: currency,
+      CurrencyRate: currencyRate,
+
+      OurReference: "Findus-JS",
+      // externalInvoiceReference1 = order.id.toString()
+      InvoiceRows: [],
+
+      // Customer
+      CustomerName: WcOrders.tryGetCustomerName(order),
+      DeliveryName: WcOrders.tryGetDeliveryName(order),
+
+      ...WcOrders.tryGetAddresses(order),
+
+      // Shipping cost
+      Freight: shippingCost,
+    };
+    return invoice;
   }
 }

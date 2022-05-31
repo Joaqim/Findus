@@ -468,9 +468,13 @@ export default {
       {
         json: "coupon_lines",
         js: "couponLines",
-        typ: union(undefined, array("any")),
+        typ: union(undefined, array(reference("CouponLine"))),
       },
-      { json: "refunds", js: "refunds", typ: union(undefined, array("any")) },
+      {
+        json: "refunds",
+        js: "refunds",
+        typ: union(undefined, array(reference("Refund"))),
+      },
       {
         json: "_links",
         js: "links",
