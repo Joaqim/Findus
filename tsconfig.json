@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "outDir": "lib",
+    "outDir": "out/spec",
     "target": "es5",
     "module": "ESNext",
     "moduleResolution": "Node",
@@ -26,17 +26,13 @@
     "isolatedModules": true,
     "baseUrl": "."
   },
+
   "include": [
     "src/**/*.ts",
-    "src/**/*.d.ts"
+    "src/**/*.d.ts",
+    "test/**/*.ts",
   ],
   "exclude": [
     "lib",
-    "**/*.test.ts"
   ],
-  "typedocOptions": {
-    "out": "docs",
-    "entryPoints": "src/index.ts",
-    "exclude": ["**/*.spec.ts", "**/*.spec.tsx",  "node_modules"]
-  }
 }

@@ -26,7 +26,7 @@ abstract class Articles {
     return articles;
   }
 
-  public static createArticle(item: LineItem): Article {
+  private static createArticle(item: LineItem): Article {
     return {
       ArticleNumber: item.sku,
       Description: Articles.sanitizeDescriptionForFortnox(item.name),

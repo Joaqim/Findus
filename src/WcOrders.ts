@@ -1,14 +1,14 @@
 import type { Rate } from "./Accounts";
 import CultureInfo from "./CultureInfo";
-import type { Customer, LineItem, TaxLine, WcOrder } from "./types";
+import type { Customer, LineItem, MetaData, TaxLine, WcOrder } from "./types";
 
 export interface TaxLabel {
   vat: number;
-  label: string;
+  label?: string;
 }
 
 abstract class WcOrders {
-  public static getPaymentMethod(order: WcOrder): "Stripe" | "PayPal" {
+  public static getPaymentMethod(order: WcOrder): "Stripe" | "PayPal" | "Bacs" {
     const { paymentMethod } = order;
 
     if (!paymentMethod || paymentMethod === "") {
@@ -23,6 +23,10 @@ abstract class WcOrders {
 
     if (/^\S*paypal$/i.test(paymentMethod)) {
       return "PayPal";
+    }
+
+    if (/^\S*bacs$/i.test(paymentMethod)) {
+      return "Bacs";
     }
 
     throw new Error(
@@ -40,7 +44,7 @@ abstract class WcOrders {
     }
 
     const isStandard = item.taxClass !== "reduced-rate";
-    const taxRates = WcOrders.getTaxRateLabels(order.taxLines);
+    const taxRates = WcOrders.tryGetTaxRateLabels(order.taxLines);
 
     const taxLabel = isStandard ? taxRates.standard : taxRates.reduced;
 
@@ -54,11 +58,11 @@ abstract class WcOrders {
 
   public static getTaxRate(tax: TaxLine): number {
     const taxLabel = tax.label;
-
     try {
       // eslint-disable-next-line unicorn/no-unsafe-regex
       const regex = /(?:\d+(?:\.\d*)?|\.\d+)%/;
-      const vat = regex.exec(taxLabel);
+      // Throws error on undefined
+      const vat = regex.exec(taxLabel!);
 
       if (!vat || vat.length !== 1) {
         throw new Error(
@@ -71,7 +75,7 @@ abstract class WcOrders {
     }
   }
 
-  public static getTaxRateLabels(taxes: TaxLine[]): {
+  public static tryGetTaxRateLabels(taxes: TaxLine[]): {
     standard: TaxLabel;
     reduced: TaxLabel;
   } {
@@ -79,6 +83,10 @@ abstract class WcOrders {
     taxes.forEach((tax: TaxLine) => {
       const vat = WcOrders.getTaxRate(tax);
       const taxLabel = { vat, label: tax.label };
+
+      if (!taxLabel) {
+        throw new Error("Missing tax label");
+      }
 
       // Make sure lowest VAT is last value in tuple
       if (labels[0]?.vat >= vat) labels.push(taxLabel);
@@ -91,15 +99,15 @@ abstract class WcOrders {
   public static tryGetDocumentLink(order: WcOrder): string {
     // Try to get Document link from metadata
     const pdfLink = order.metaData.find(
-      (entry) => entry.key === "_wcpdf_document_link"
-    )?.value;
+      (entry: MetaData) => entry.key === "_wcpdf_document_link"
+    )?.value as string;
 
     if (pdfLink && pdfLink !== "") {
       return pdfLink;
     } else {
       // Try to get Order key from metadata
       const orderKey = order.metaData.find(
-        (entry) => entry.key === "_wc_order_key"
+        (entry: MetaData) => entry.key === "_wc_order_key"
       );
 
       if (!orderKey) {
@@ -111,15 +119,17 @@ abstract class WcOrders {
     }
   }
   public static tryGetInvoiceReference(order: WcOrder): number | undefined {
-    let ref = order.metaData.find(
-      (entry) => entry.key === "_fortnox_invoice_number"
-    )?.value;
-    if (!ref) {
+    if (!order.metaData) return;
+    let reference = order.metaData.find(
+      (entry: MetaData) => entry.key === "_fortnox_invoice_number"
+    )?.value as string;
+
+    if (!reference) {
       throw new Error(
         `Order: ${order.id} is missing '_fortnox_invoice_number' referenec in meta data.`
       );
     }
-    return parseInt(ref);
+    return parseInt(reference);
   }
 
   public static tryCanBeRefunded(order: WcOrder) {
@@ -140,7 +150,9 @@ abstract class WcOrders {
     } else if (order.shipping.firstName || order.shipping.lastName) {
       return `${order.shipping.firstName} ${order.shipping.lastName}`.trim();
     } else {
-      throw new Error(`Order: ${order.id} is missing customer name for billing`);
+      throw new Error(
+        `Order: ${order.id} is missing customer name for billing`
+      );
     }
   }
   public static tryGetDeliveryName(order: WcOrder): string {
@@ -149,7 +161,9 @@ abstract class WcOrders {
     } else if (order.billing.firstName || order.billing.lastName) {
       return `${order.billing.firstName} ${order.billing.lastName}`.trim();
     } else {
-      throw new Error(`Order: ${order.id} is missing customer name for delivery`);
+      throw new Error(
+        `Order: ${order.id} is missing customer name for delivery`
+      );
     }
   }
 

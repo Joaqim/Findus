@@ -1,3 +1,4 @@
+import CultureInfo from "./CultureInfo";
 import SalesAccounts from "./data/SalesAccounts";
 import VatAccounts from "./data/VATAccounts";
 import LineItems from "./LineItems";
@@ -41,18 +42,20 @@ abstract class Accounts {
   public static tryGetSalesAccountForOrder(order: WcOrder): Account {
     const countryIso = order.billing.country;
     const paymentMethod = WcOrders.getPaymentMethod(order);
-
-    return this.tryGetSalesAccount(countryIso, paymentMethod);
+    if (CultureInfo.isInsideEU(countryIso)) {
+      return this.tryGetSalesAccount(countryIso, paymentMethod);
+    } else {
+      return this.tryGetSalesAccount("NON_EU", paymentMethod);
+    }
   }
 
   public static tryGetSalesRateForItem(order: WcOrder, item: LineItem): Rate {
     const acc = Accounts.tryGetSalesAccountForOrder(order);
-    if(LineItems.hasReducedRate(item)) {
+    if (LineItems.hasReducedRate(item)) {
       return acc.reduced ?? acc.standard;
     } else {
       return acc.standard;
     }
-
   }
 
   public static tryGetSalesAccount(

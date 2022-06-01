@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts"
+  ],
+  "exclude": [
+    "lib",
+    "**/*.spec.ts"
+  ],
+  "typedocOptions": {
+    "out": "docs",
+    "entryPoints": "src/index.ts",
+    "exclude": ["**/*.spec.ts", "**/*.spec.tsx",  "node_modules"]
+  }
+}

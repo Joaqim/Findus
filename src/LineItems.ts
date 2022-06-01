@@ -2,13 +2,14 @@ import type { LineItem, Tax } from "./types";
 
 abstract class LineItems {
   public static getTotalWithTax(item: LineItem): number {
-    return item.price + LineItems.getTotalWithTax(item);
+    return item.price + parseFloat(item.totalTax);
   }
 
   public static getAccurateTaxTotal(item: LineItem): number {
+    if (!item.taxes) return 0;
     let result = 0;
     item.taxes.forEach((tax: Tax) => {
-      result += parseFloat(tax.total);
+      if (tax.total) result += parseFloat(tax.total);
     });
     return result;
   }

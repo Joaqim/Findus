@@ -36,14 +36,14 @@ describe("WcOrders", () => {
       { id: 1, label: "10% VAT" },
     ];
 
-    let taxLabels = WcOrders.getTaxRateLabels(taxLines);
+    let taxLabels = WcOrders.tryGetTaxRateLabels(taxLines);
 
     expect(taxLabels).to.deep.equal({
       standard: { vat: 0.13, label: "13% VAT" },
       reduced: { vat: 0.1, label: "10% VAT" },
     });
 
-    let frenchTaxes = WcOrders.getTaxRateLabels(taxes["FR"]);
+    let frenchTaxes = WcOrders.tryGetTaxRateLabels(taxes["FR"]);
     expect(frenchTaxes.standard).to.deep.equal({
       vat: 0.2,
       label: "20% VAT",
@@ -65,6 +65,6 @@ describe("WcOrders", () => {
     };
 
     // Expect reversed input to still be ordered with Standard at index 0
-    expectTaxes(WcOrders.getTaxRateLabels(taxes["FR"].reverse()), 0.2, 0.055);
+    expectTaxes(WcOrders.tryGetTaxRateLabels(taxes["FR"].reverse()), 0.2, 0.055);
   });
 });

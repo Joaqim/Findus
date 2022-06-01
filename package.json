@@ -6,12 +6,12 @@
   "module": "lib/index.js",
   "types": "lib/index.d.ts",
   "scripts": {
-    "ts-types": " tsc --emitDeclarationOnly --outDir lib",
+    "ts-types": " tsc -p tsconfig.build.json --emitDeclarationOnly --outDir lib",
     "build": "rimraf lib && node ./esbuild.js && npm run ts-types",
     "test": "ts-mocha -p tsconfig.test.json test/**/*.spec.ts",
     "lint": "eslint --ext .ts src",
     "lint:fix": "eslint --ext .ts --fix src",
-    "docs": "typedoc ./src --out ./docs && touch ./docs/.nojekyll",
+    "docs": "typedoc ./src --out ./docs --tsconfig tsconfig.build.json && touch ./docs/.nojekyll",
     "precommit": "npm build",
     "prepush": "npm test",
     "prepare": "husky install"

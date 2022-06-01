@@ -115,7 +115,7 @@ export default abstract class Invoices {
     };
   }
 
-  public static tryCreateInvoice(order: WcOrder, currencyRate = 1): Invoice | null {
+  public static tryCreateInvoice(order: WcOrder, currencyRate = 1): Invoice {
     const currency = order.currency;
 
     if (currency.toUpperCase() === "SEK" && currencyRate !== 1)
