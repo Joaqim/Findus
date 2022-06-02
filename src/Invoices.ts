@@ -1,7 +1,7 @@
 /* eslint-disable class-methods-use-this */
 import Accounts from "./Accounts";
 import LineItems from "./LineItems";
-import type { Invoice, InvoiceRow, Refund, WcOrder } from "./types";
+import type { Invoice, InvoiceRow, MetaData, Refund, WcOrder } from "./types";
 import WcOrders from "./WcOrders";
 
 export default abstract class Invoices {
@@ -45,11 +45,11 @@ export default abstract class Invoices {
         creditInvoice.InvoiceRows = [];
       }
 
-      if (!refund.lineItems) {
+      if (!refund.line_items) {
         throw new Error("Order is not partially refunded.");
       }
 
-      for (const item of refund.lineItems) {
+      for (const item of refund.line_items) {
         const acc = Accounts.tryGetSalesRateForItem(order, item);
         creditInvoice.InvoiceRows.push({
           AccountNumber: acc.accountNumber,
@@ -71,7 +71,7 @@ export default abstract class Invoices {
   ): Invoice {
     const invoiceRows: InvoiceRow[] = [];
 
-    order.lineItems.forEach((item): InvoiceRow => {
+    order.line_items.forEach((item): InvoiceRow => {
       const acc = Accounts.tryGetSalesRateForItem(order, item);
       return {
         ArticleNumber: item.sku,
@@ -96,15 +96,23 @@ export default abstract class Invoices {
   private static tryGenerateBoilerplateInvoice(
     order: WcOrder
   ): Omit<Invoice, "Currency" | "CurrencyRate"> {
+
+    const orderId = order.id.toString();
+
+    const orderPrefix = order.meta_data.find(
+      (meta: MetaData) => meta.key === "storefront_prefix"
+    )?.value;
+
+
     return {
       InvoiceType: "CASHINVOICE",
       PaymentWay: "CARD",
 
       VATIncluded: true,
-      YourOrderNumber: order.id.toString(),
+      YourOrderNumber: orderPrefix ? `${orderPrefix}-${orderId}` : orderId,
 
-      OurReference: "Findus-JS",
-      // externalInvoiceReference1 = order.id.toString()
+      OurReference: "Findus",
+
       InvoiceRows: [],
 
       // Customer
@@ -116,23 +124,28 @@ export default abstract class Invoices {
   }
 
   public static tryCreateInvoice(order: WcOrder, currencyRate = 1): Invoice {
-    const currency = order.currency;
+    const currency = order.currency.toUpperCase();
 
-    if (currency.toUpperCase() === "SEK" && currencyRate !== 1)
+    if (currency === "SEK" && currencyRate !== 1) {
       throw new Error(`Unexpected Currency Rate for SEK: ${currencyRate}`);
+    } else if (currencyRate === 1) {
+      throw new Error(
+        `Unexpected Currency Rate for ${currency}: ${currencyRate}`
+      );
+    }
 
     const countryIso = order.billing.country;
 
     const paymentMethod = WcOrders.getPaymentMethod(order);
 
-    const shippingCost = parseFloat(order.shippingTotal);
+    const shippingCost = parseFloat(order.shipping_total);
 
     const invoiceRows: InvoiceRow[] = [];
 
     let highestRate = 0;
 
-    for (const item of order.lineItems) {
-      const isReduced = item.taxClass !== "reduced-rate";
+    for (const item of order.line_items) {
+      const isReduced = item.tax_class !== "reduced-rate";
       const { vat, accountNumber } = Accounts.getRate(
         countryIso,
         isReduced,
@@ -155,7 +168,7 @@ export default abstract class Invoices {
     const invoice: Invoice = {
       ...this.tryGenerateBoilerplateInvoice(order),
 
-      InvoiceDate: order.datePaid,
+      InvoiceDate: order.date_paid,
 
       Currency: currency,
       CurrencyRate: currencyRate,

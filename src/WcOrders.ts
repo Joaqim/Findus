@@ -8,29 +8,27 @@ export interface TaxLabel {
 }
 
 abstract class WcOrders {
-  public static getPaymentMethod(order: WcOrder): "Stripe" | "PayPal" | "Bacs" {
-    const { paymentMethod } = order;
+  public static getPaymentMethod(order: WcOrder): "Stripe" | "PayPal" {
+    const { payment_method } = order;
 
+    /*
     if (!paymentMethod || paymentMethod === "") {
       throw new Error("Beställningen behöver bokföras manuellt.");
     }
+    */
     // NOTE: Matches stripe & stripe_{bancontant,ideal,sofort}, but not *_stripe
 
-    if (/^stripe\S*/i.test(paymentMethod)) {
+    if (/^stripe\S*/i.test(payment_method)) {
       return "Stripe";
     }
     // NOTE: Matches paypal & (ppec_paypal)_paypal, but not paypal_*
 
-    if (/^\S*paypal$/i.test(paymentMethod)) {
+    if (/^\S*paypal$/i.test(payment_method)) {
       return "PayPal";
     }
 
-    if (/^\S*bacs$/i.test(paymentMethod)) {
-      return "Bacs";
-    }
-
     throw new Error(
-      `Unexpected Payment Method: '${paymentMethod}', '${order.paymentMethodTitle}'`
+      `Unexpected Payment Method: '${payment_method}', '${order.payment_method_title}'`
     );
   }
 
@@ -43,8 +41,8 @@ abstract class WcOrders {
       return { vat: 0, label: "0% Vat" };
     }
 
-    const isStandard = item.taxClass !== "reduced-rate";
-    const taxRates = WcOrders.tryGetTaxRateLabels(order.taxLines);
+    const isStandard = item.tax_class !== "reduced-rate";
+    const taxRates = WcOrders.tryGetTaxRateLabels(order.tax_lines);
 
     const taxLabel = isStandard ? taxRates.standard : taxRates.reduced;
 
@@ -96,9 +94,18 @@ abstract class WcOrders {
     return { standard: labels[0], reduced: labels[1] };
   }
 
-  public static tryGetDocumentLink(order: WcOrder): string {
+  public static getDocumentSource(order: WcOrder): string | null {
+    return order.meta_data.find(
+      (entry: MetaData) => entry.key === "pdf_invoice_source"
+    )?.value as string;
+  }
+
+  public static tryGetDocumentLink(
+    order: WcOrder,
+    storefrontUrl?: string
+  ): string {
     // Try to get Document link from metadata
-    const pdfLink = order.metaData.find(
+    const pdfLink = order.meta_data.find(
       (entry: MetaData) => entry.key === "_wcpdf_document_link"
     )?.value as string;
 
@@ -106,21 +113,36 @@ abstract class WcOrders {
       return pdfLink;
     } else {
       // Try to get Order key from metadata
-      const orderKey = order.metaData.find(
+      let orderKey = order.meta_data.find(
         (entry: MetaData) => entry.key === "_wc_order_key"
-      );
+      )?.value;
 
       if (!orderKey) {
-        throw new Error(
-          `Order: ${order.id} is missing document_link and order_key`
-        );
+        orderKey = order.order_key;
       }
-      return `https://gamerbulk.com/wp-admin/admin-ajax.php?action=generate_wpo_wcpdf&template_type=invoice&order_ids=${order.id}&order_key=${orderKey}`;
+
+      if (!orderKey) {
+        throw new Error(`Order is missing document_link and order_key`);
+      }
+
+      if (!storefrontUrl) {
+        const url = order.meta_data.find(
+          (entry: MetaData) => entry.key === "storefront_url"
+        )?.value;
+        if (!url) {
+          throw new Error(
+            `Could not get 'storefront_url' from order meta_data`
+          );
+        }
+        return `${url}/wp-admin/admin-ajax.php?action=generate_wpo_wcpdf&template_type=invoice&order_ids=${order.id}&order_key=${orderKey}`;
+      }
+
+      return `${storefrontUrl}/wp-admin/admin-ajax.php?action=generate_wpo_wcpdf&template_type=invoice&order_ids=${order.id}&order_key=${orderKey}`;
     }
   }
   public static tryGetInvoiceReference(order: WcOrder): number | undefined {
-    if (!order.metaData) return;
-    let reference = order.metaData.find(
+    if (!order.meta_data) return;
+    let reference = order.meta_data.find(
       (entry: MetaData) => entry.key === "_fortnox_invoice_number"
     )?.value as string;
 
@@ -145,10 +167,10 @@ abstract class WcOrders {
   }
 
   public static tryGetCustomerName(order: WcOrder): string {
-    if (order.billing.firstName || order.billing.lastName) {
-      return `${order.billing.firstName} ${order.billing.lastName}`.trim();
-    } else if (order.shipping.firstName || order.shipping.lastName) {
-      return `${order.shipping.firstName} ${order.shipping.lastName}`.trim();
+    if (order.billing.first_name || order.billing.last_name) {
+      return `${order.billing.first_name} ${order.billing.last_name}`.trim();
+    } else if (order.shipping.first_name || order.shipping.last_name) {
+      return `${order.shipping.first_name} ${order.shipping.last_name}`.trim();
     } else {
       throw new Error(
         `Order: ${order.id} is missing customer name for billing`
@@ -156,10 +178,10 @@ abstract class WcOrders {
     }
   }
   public static tryGetDeliveryName(order: WcOrder): string {
-    if (order.shipping.firstName || order.shipping.lastName) {
-      return `${order.shipping.firstName} ${order.shipping.lastName}`.trim();
-    } else if (order.billing.firstName || order.billing.lastName) {
-      return `${order.billing.firstName} ${order.billing.lastName}`.trim();
+    if (order.shipping.first_name || order.shipping.last_name) {
+      return `${order.shipping.first_name} ${order.shipping.last_name}`.trim();
+    } else if (order.billing.first_name || order.billing.last_name) {
+      return `${order.billing.first_name} ${order.billing.last_name}`.trim();
     } else {
       throw new Error(
         `Order: ${order.id} is missing customer name for delivery`
@@ -170,14 +192,14 @@ abstract class WcOrders {
   public static tryGetAddresses(order: WcOrder): Customer {
     return {
       Country: CultureInfo.tryGetEnglishName(order.billing.country),
-      Address1: order.billing.address1 ?? order.shipping.address1,
-      Address2: order.billing.address2 ?? order.shipping.address2,
+      Address1: order.billing.address_1 ?? order.shipping.address_1,
+      Address2: order.billing.address_2 ?? order.shipping.address_2,
       ZipCode: order.billing.postcode ?? order.shipping.postcode,
       City: order.billing.city ?? order.shipping.city,
 
       DeliveryCountry: CultureInfo.tryGetEnglishName(order.shipping.country),
-      DeliveryAddress1: order.shipping.address1 ?? order.billing.address1,
-      DeliveryAddress2: order.shipping.address2 ?? order.billing.address2,
+      DeliveryAddress1: order.shipping.address_1 ?? order.billing.address_1,
+      DeliveryAddress2: order.shipping.address_2 ?? order.billing.address_2,
       DeliveryZipCode: order.shipping.postcode ?? order.billing.postcode,
       DeliveryCity: order.shipping.city ?? order.billing.city,
     };

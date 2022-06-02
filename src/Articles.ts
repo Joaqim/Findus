@@ -20,7 +20,7 @@ abstract class Articles {
   public static createArticles(order: WcOrder): Article[] {
     const articles = [];
 
-    for (const item of order.lineItems) {
+    for (const item of order.line_items) {
       articles.push(Articles.createArticle(item));
     }
     return articles;

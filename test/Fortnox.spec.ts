@@ -8,7 +8,9 @@ describe("Invoice, Customer & Articles", () => {
       JSON.stringify(wooOrders.data[0])
     );
 
-    const invoice = Findus.Invoices.tryCreateInvoice(order);
+    const currencyRate = 1.234;
+
+    const invoice = Findus.Invoices.tryCreateInvoice(order, currencyRate);
     const customer = Findus.Customers.createCustomer(order, invoice);
     const articles = Findus.Articles.createArticles(order);
   });

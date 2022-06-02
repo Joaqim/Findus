@@ -2,7 +2,7 @@ import type { MetaData } from "./WcOrder";
 
 export interface DateCreated {
   date?: Date;
-  timezoneType?: number;
+  timezone_type?: number;
   timezone?: string;
 }
 export type DateModified = DateCreated;
@@ -12,27 +12,27 @@ export interface DisplayValueClass {
   code?: string;
   amount?: string;
   status?: string;
-  dateCreated?: DateCreated;
-  dateModified?: DateModified;
-  dateExpires?: null;
-  discountType?: string;
+  date_created?: DateCreated;
+  date_modified?: DateModified;
+  date_expires?: null;
+  discount_type?: string;
   description?: string;
-  usageCount?: number;
-  individualUse?: boolean;
-  productIDS?: unknown[];
-  excludedProductIDS?: unknown[];
-  usageLimit?: number;
-  usageLimitPerUser?: number;
-  limitUsageToXItems?: number;
-  freeShipping?: boolean;
-  productCategories?: unknown[];
-  excludedProductCategories?: unknown[];
-  excludeSaleItems?: boolean;
-  minimumAmount?: string;
-  maximumAmount?: string;
-  emailRestrictions?: unknown[];
+  usage_count?: number;
+  individual_use?: boolean;
+  product_ids?: unknown[];
+  excluded_product_ids?: unknown[];
+  usage_limit?: number;
+  usage_limit_per_user?: number;
+  limit_usage_to_x_items?: number;
+  free_shipping?: boolean;
+  product_categories?: unknown[];
+  excluded_product_categories?: unknown[];
+  exclude_sale_items?: boolean;
+  minimum_amount?: string;
+  maximum_amount?: string;
+  email_restrictions?: unknown[];
   virtual?: boolean;
-  metaData?: MetaData[];
+  meta_data?: MetaData[];
 }
 
 export interface CouponLineMetaData {
