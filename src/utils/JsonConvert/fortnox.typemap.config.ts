@@ -1,9 +1,6 @@
-import { object, union, reference, array } from "./TypeMaps/typeMapUtils";
-
-import wooTypeMaps from "./TypeMaps/WooCommerce.config";
+import { array, object, reference, union } from "./TypeMaps/typeMapUtils";
 
 export default {
-  ...wooTypeMaps,
   FortnoxFile: object(
     [
       { json: "@url", js: "url", typ: union(undefined, "") },
