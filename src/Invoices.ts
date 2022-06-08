@@ -5,19 +5,20 @@ import type { Invoice, InvoiceRow, MetaData, Refund, WcOrder } from "./types";
 import WcOrders from "./WcOrders";
 
 export default abstract class Invoices {
-  public static tryCanBeRefunded(invoice: Invoice) {
+  public static tryCanBeRefunded(invoice: Invoice): boolean {
     if (invoice.Cancelled === true) {
       throw new Error("Invoice has already been Cancelled.");
-    } else if (invoice.Booked == true) {
+    } else if (invoice.Booked === true) {
       throw new Error("Invoice has not been Booked in Fortnox.");
     } else if (invoice.CreditInvoiceReference) {
       throw new Error("Invoice has an existing Credit Invoice");
     }
+    return true;
   }
 
   public static tryCreatePartialRefund(
     order: WcOrder,
-    /*invoice: Invoice,*/
+    /* invoice: Invoice, */
     creditInvoice: Invoice,
     refunds: Refund[]
   ): Invoice {
@@ -50,11 +51,11 @@ export default abstract class Invoices {
       }
 
       for (const item of refund.line_items) {
-        const acc = Accounts.tryGetSalesRateForItem(order, item);
+        const accumulator = Accounts.tryGetSalesRateForItem(order, item);
         creditInvoice.InvoiceRows.push({
-          AccountNumber: acc.accountNumber,
+          AccountNumber: accumulator.accountNumber,
           ArticleNumber: item.sku,
-          VAT: acc.vat,
+          VAT: accumulator.vat,
           DeliveredQuantity: item.quantity,
           Price: LineItems.getTotalWithTax(item),
         });
@@ -72,11 +73,11 @@ export default abstract class Invoices {
     const invoiceRows: InvoiceRow[] = [];
 
     order.line_items.forEach((item): InvoiceRow => {
-      const acc = Accounts.tryGetSalesRateForItem(order, item);
+      const accumulator = Accounts.tryGetSalesRateForItem(order, item);
       return {
         ArticleNumber: item.sku,
         DeliveredQuantity: item.quantity,
-        AccountNumber: acc.accountNumber,
+        AccountNumber: accumulator.accountNumber,
         Price: LineItems.getTotalWithTax(item),
       };
     });
@@ -96,13 +97,11 @@ export default abstract class Invoices {
   private static tryGenerateBoilerplateInvoice(
     order: WcOrder
   ): Omit<Invoice, "Currency" | "CurrencyRate"> {
-
     const orderId = order.id.toString();
 
     const orderPrefix = order.meta_data.find(
       (meta: MetaData) => meta.key === "storefront_prefix"
     )?.value;
-
 
     return {
       InvoiceType: "CASHINVOICE",
@@ -112,7 +111,6 @@ export default abstract class Invoices {
       YourOrderNumber: orderPrefix ? `${orderPrefix}-${orderId}` : orderId,
 
       OurReference: "Findus",
-
       InvoiceRows: [],
 
       // Customer
@@ -152,7 +150,7 @@ export default abstract class Invoices {
         paymentMethod
       );
 
-      if (vat > highestRate) {
+      if (item.price > 0 && vat > highestRate) {
         highestRate = vat;
       }
 
@@ -168,14 +166,14 @@ export default abstract class Invoices {
     const invoice: Invoice = {
       ...this.tryGenerateBoilerplateInvoice(order),
 
-      InvoiceDate: order.date_paid,
+      InvoiceDate: new Date(order.date_paid),
 
       Currency: currency,
       CurrencyRate: currencyRate,
 
       OurReference: "Findus-JS",
       // externalInvoiceReference1 = order.id.toString()
-      InvoiceRows: [],
+      InvoiceRows: invoiceRows,
 
       // Customer
       CustomerName: WcOrders.tryGetCustomerName(order),

@@ -1,6 +1,6 @@
 import { object, union, reference, array } from "./TypeMaps/typeMapUtils";
 
-import wooTypeMaps from "./TypeMaps/WooCommerce.config"
+import wooTypeMaps from "./TypeMaps/WooCommerce.config";
 
 export default {
   ...wooTypeMaps,

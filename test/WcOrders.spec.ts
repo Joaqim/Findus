@@ -1,30 +1,10 @@
 import { expect } from "chai";
 
-import { TaxLabel, TaxLine, WcOrders } from "../src";
+import { TaxLabel, WcOrders } from "../src";
+
+import taxes from "./taxes.mock";
 
 describe("WcOrders", () => {
-  const taxes: Record<string, TaxLine[]> = {
-    FR: [
-      {
-        id: 6289,
-        rate_code: "FR-5.5% VAT-1",
-        rate_id: 100,
-        label: "5.5% VAT",
-        compound: false,
-        tax_total: "3.87",
-        shipping_tax_total: "0.00",
-      },
-      {
-        id: 6290,
-        rate_code: "FR-20% VAT-1",
-        rate_id: 73,
-        label: "20% VAT",
-        compound: false,
-        tax_total: "5.22",
-        shipping_tax_total: "0.00",
-      },
-    ],
-  };
   it("Gets TAX Rate", () => {
     let rate = WcOrders.getTaxRate(taxes["FR"][0]);
     expect(rate).to.equal(0.055);
@@ -65,6 +45,12 @@ describe("WcOrders", () => {
     };
 
     // Expect reversed input to still be ordered with Standard at index 0
-    expectTaxes(WcOrders.tryGetTaxRateLabels(taxes["FR"].reverse()), 0.2, 0.055);
+    expectTaxes(
+      WcOrders.tryGetTaxRateLabels(taxes["FR"].reverse()),
+      0.2,
+      0.055
+    );
+
+    expectTaxes(WcOrders.tryGetTaxRateLabels(taxes["FR"]), 0.2, 0.055);
   });
 });

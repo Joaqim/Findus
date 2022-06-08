@@ -56,11 +56,12 @@ abstract class WcOrders {
 
   public static getTaxRate(tax: TaxLine): number {
     const taxLabel = tax.label;
+
     try {
       // eslint-disable-next-line unicorn/no-unsafe-regex
       const regex = /(?:\d+(?:\.\d*)?|\.\d+)%/;
       // Throws error on undefined
-      const vat = regex.exec(taxLabel!);
+      const vat = regex.exec(taxLabel);
 
       if (!vat || vat.length !== 1) {
         throw new Error(
@@ -111,38 +112,37 @@ abstract class WcOrders {
 
     if (pdfLink && pdfLink !== "") {
       return pdfLink;
-    } else {
-      // Try to get Order key from metadata
-      let orderKey = order.meta_data.find(
-        (entry: MetaData) => entry.key === "_wc_order_key"
+    }
+    // Try to get Order key from metadata
+    let orderKey = order.meta_data.find(
+      (entry: MetaData) => entry.key === "_wc_order_key"
+    )?.value;
+
+    if (!orderKey) {
+      orderKey = order.order_key;
+    }
+
+    if (!orderKey) {
+      throw new Error(`Order is missing document_link and order_key`);
+    }
+
+    if (!storefrontUrl) {
+      const url = order.meta_data.find(
+        (entry: MetaData) => entry.key === "storefront_url"
       )?.value;
 
-      if (!orderKey) {
-        orderKey = order.order_key;
+      if (!url) {
+        throw new Error(`Could not get 'storefront_url' from order meta_data`);
       }
-
-      if (!orderKey) {
-        throw new Error(`Order is missing document_link and order_key`);
-      }
-
-      if (!storefrontUrl) {
-        const url = order.meta_data.find(
-          (entry: MetaData) => entry.key === "storefront_url"
-        )?.value;
-        if (!url) {
-          throw new Error(
-            `Could not get 'storefront_url' from order meta_data`
-          );
-        }
-        return `${url}/wp-admin/admin-ajax.php?action=generate_wpo_wcpdf&template_type=invoice&order_ids=${order.id}&order_key=${orderKey}`;
-      }
-
-      return `${storefrontUrl}/wp-admin/admin-ajax.php?action=generate_wpo_wcpdf&template_type=invoice&order_ids=${order.id}&order_key=${orderKey}`;
+      return `${url}/wp-admin/admin-ajax.php?action=generate_wpo_wcpdf&template_type=invoice&order_ids=${order.id}&order_key=${orderKey}`;
     }
+
+    return `${storefrontUrl}/wp-admin/admin-ajax.php?action=generate_wpo_wcpdf&template_type=invoice&order_ids=${order.id}&order_key=${orderKey}`;
   }
-  public static tryGetInvoiceReference(order: WcOrder): number | undefined {
-    if (!order.meta_data) return;
-    let reference = order.meta_data.find(
+
+  public static tryGetInvoiceReference(order: WcOrder): number {
+    if (!order.meta_data) return 0;
+    const reference = order.meta_data.find(
       (entry: MetaData) => entry.key === "_fortnox_invoice_number"
     )?.value as string;
 
@@ -151,10 +151,10 @@ abstract class WcOrders {
         `Order: ${order.id} is missing '_fortnox_invoice_number' referenec in meta data.`
       );
     }
-    return parseInt(reference);
+    return parseInt(reference, 10);
   }
 
-  public static tryCanBeRefunded(order: WcOrder) {
+  public static tryCanBeRefunded(order: WcOrder): boolean {
     if (order.status === "completed" && order.refunds?.length === 0) {
       throw new Error(
         "Order status is 'completed' and is not partially refunded."
@@ -164,29 +164,29 @@ abstract class WcOrders {
         `Unexpected order status: '${order.status}', expected 'refunded' or alternatively 'completed' with partial refund.`
       );
     }
+    return true;
   }
 
   public static tryGetCustomerName(order: WcOrder): string {
     if (order.billing.first_name || order.billing.last_name) {
       return `${order.billing.first_name} ${order.billing.last_name}`.trim();
-    } else if (order.shipping.first_name || order.shipping.last_name) {
-      return `${order.shipping.first_name} ${order.shipping.last_name}`.trim();
-    } else {
-      throw new Error(
-        `Order: ${order.id} is missing customer name for billing`
-      );
     }
+
+    if (order.shipping.first_name || order.shipping.last_name) {
+      return `${order.shipping.first_name} ${order.shipping.last_name}`.trim();
+    }
+    throw new Error(`Order: ${order.id} is missing customer name for billing`);
   }
+
   public static tryGetDeliveryName(order: WcOrder): string {
     if (order.shipping.first_name || order.shipping.last_name) {
       return `${order.shipping.first_name} ${order.shipping.last_name}`.trim();
-    } else if (order.billing.first_name || order.billing.last_name) {
-      return `${order.billing.first_name} ${order.billing.last_name}`.trim();
-    } else {
-      throw new Error(
-        `Order: ${order.id} is missing customer name for delivery`
-      );
     }
+
+    if (order.billing.first_name || order.billing.last_name) {
+      return `${order.billing.first_name} ${order.billing.last_name}`.trim();
+    }
+    throw new Error(`Order: ${order.id} is missing customer name for delivery`);
   }
 
   public static tryGetAddresses(order: WcOrder): Customer {
