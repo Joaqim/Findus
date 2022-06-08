@@ -14,6 +14,7 @@ module.exports = {
     "id-length": "off",
     "prefer-const": "error",
     "no-const-assign": "error",
+    camelcase: 0,
     quotes: "off",
     "@typescript-eslint/quotes": [
       "warn",
@@ -26,4 +27,4 @@ module.exports = {
     "import/prefer-default-export": "off", // Allow single Named-export
     "unicorn/prevent-abbreviations": "warn",
   },
-}
+};

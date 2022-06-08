@@ -1,17 +1,23 @@
-/* eslint-disable @typescript-eslint/explicit-function-return-type */
-export function array(typ: unknown) {
+export function array<Type = unknown>(typ: Type): { arrayItems: Type } {
   return { arrayItems: typ };
 }
 
-export function union(...typs: unknown[]) {
+export function union<Type = unknown>(
+  ...typs: Type[]
+): { unionMembers: Type[] } {
   return { unionMembers: typs };
 }
 
-export function object(properties: unknown[], additional: unknown) {
+export function object<TProperties = unknown, TAdditional = unknown>(
+  properties: TProperties[],
+  additional: TAdditional
+): {
+  properties: TProperties[];
+  additional: TAdditional;
+} {
   return { properties, additional };
 }
 
-export function reference(name: string) {
+export function reference(name: string): { reference: string } {
   return { reference: name };
 }
-

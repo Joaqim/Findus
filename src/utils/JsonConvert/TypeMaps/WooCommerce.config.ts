@@ -1,6 +1,6 @@
 import { array, object, reference, union } from "./typeMapUtils";
 
-const typeMap: any = {
+const typeMap: unknown = {
   WcOrder: object(
     [
       { json: "id", js: "id", typ: union(undefined, 0) },
@@ -11,21 +11,29 @@ const typeMap: any = {
       { json: "version", js: "version", typ: union(undefined, "") },
       { json: "status", js: "status", typ: union(undefined, "") },
       { json: "currency", js: "currency", typ: union(undefined, "") },
-      { json: "date_created", js: "dateCreated", typ: union(undefined, Date) },
+      { json: "date_created", js: "dateCreated", typ: union(undefined, "") },
       {
         json: "date_created_gmt",
         js: "dateCreatedGmt",
-        typ: union(undefined, Date),
+        typ: union(undefined, ""),
       },
-      { json: "date_modified", js: "dateModified", typ: union(undefined, Date) },
+      { json: "date_modified", js: "dateModified", typ: union(undefined, "") },
       {
         json: "date_modified_gmt",
         js: "dateModifiedGmt",
-        typ: union(undefined, Date),
+        typ: union(undefined, ""),
       },
-      { json: "discount_total", js: "discountTotal", typ: union(undefined, "") },
+      {
+        json: "discount_total",
+        js: "discountTotal",
+        typ: union(undefined, ""),
+      },
       { json: "discount_tax", js: "discountTax", typ: union(undefined, "") },
-      { json: "shipping_total", js: "shippingTotal", typ: union(undefined, "") },
+      {
+        json: "shipping_total",
+        js: "shippingTotal",
+        typ: union(undefined, ""),
+      },
       { json: "shipping_tax", js: "shippingTax", typ: union(undefined, "") },
       { json: "cart_tax", js: "cartTax", typ: union(undefined, "") },
       { json: "total", js: "total", typ: union(undefined, "") },
@@ -47,18 +55,38 @@ const typeMap: any = {
         typ: union(undefined, ""),
       },
       { json: "customer_note", js: "customerNote", typ: union(undefined, "") },
-      { json: "billing", js: "billing", typ: union(undefined, reference("Address")) },
-      { json: "shipping", js: "shipping", typ: union(undefined, reference("Address")) },
-      { json: "payment_method", js: "paymentMethod", typ: union(undefined, "") },
+      {
+        json: "billing",
+        js: "billing",
+        typ: union(undefined, reference("Address")),
+      },
+      {
+        json: "shipping",
+        js: "shipping",
+        typ: union(undefined, reference("Address")),
+      },
+      {
+        json: "payment_method",
+        js: "paymentMethod",
+        typ: union(undefined, ""),
+      },
       {
         json: "payment_method_title",
         js: "paymentMethodTitle",
         typ: union(undefined, ""),
       },
-      { json: "transaction_id", js: "transactionID", typ: union(undefined, "") },
-      { json: "date_paid", js: "datePaid", typ: union(undefined, Date) },
-      { json: "date_paid_gmt", js: "datePaidGmt", typ: union(undefined, Date) },
-      { json: "date_completed", js: "dateCompleted", typ: union(undefined, null) },
+      {
+        json: "transaction_id",
+        js: "transactionID",
+        typ: union(undefined, ""),
+      },
+      { json: "date_paid", js: "datePaid", typ: union(undefined, "") },
+      { json: "date_paid_gmt", js: "datePaidGmt", typ: union(undefined, "") },
+      {
+        json: "date_completed",
+        js: "dateCompleted",
+        typ: union(undefined, null),
+      },
       {
         json: "date_completed_gmt",
         js: "dateCompletedGmt",
@@ -75,16 +103,36 @@ const typeMap: any = {
         js: "lineItems",
         typ: union(undefined, array(reference("LineItem"))),
       },
-      { json: "tax_lines", js: "taxLines", typ: union(undefined, array(reference("TaxLine"))) },
+      {
+        json: "tax_lines",
+        js: "taxLines",
+        typ: union(undefined, array(reference("TaxLine"))),
+      },
       {
         json: "shipping_lines",
         js: "shippingLines",
         typ: union(undefined, array(reference("ShippingLine"))),
       },
-      { json: "fee_lines", js: "feeLines", typ: union(undefined, array("any")) },
-      { json: "coupon_lines", js: "couponLines", typ: union(undefined, array("any")) },
-      { json: "refunds", js: "refunds", typ: union(undefined, array("any")) },
-      { json: "_links", js: "links", typ: union(undefined, reference("Links")) },
+      {
+        json: "fee_lines",
+        js: "feeLines",
+        typ: union(undefined, array("unknown")),
+      },
+      {
+        json: "coupon_lines",
+        js: "couponLines",
+        typ: union(undefined, array("unknown")),
+      },
+      {
+        json: "refunds",
+        js: "refunds",
+        typ: union(undefined, array("unknown")),
+      },
+      {
+        json: "_links",
+        js: "links",
+        typ: union(undefined, reference("Links")),
+      },
     ],
     false
   ),
@@ -116,7 +164,11 @@ const typeMap: any = {
       { json: "subtotal_tax", js: "subtotalTax", typ: union(undefined, "") },
       { json: "total", js: "total", typ: union(undefined, "") },
       { json: "total_tax", js: "totalTax", typ: union(undefined, "") },
-      { json: "taxes", js: "taxes", typ: union(undefined, array(reference("Tax"))) },
+      {
+        json: "taxes",
+        js: "taxes",
+        typ: union(undefined, array(reference("Tax"))),
+      },
       {
         json: "meta_data",
         js: "metaData",
@@ -145,7 +197,11 @@ const typeMap: any = {
   ),
   Links: object(
     [
-      { json: "self", js: "self", typ: union(undefined, array(reference("Collection"))) },
+      {
+        json: "self",
+        js: "self",
+        typ: union(undefined, array(reference("Collection"))),
+      },
       {
         json: "collection",
         js: "collection",
@@ -154,7 +210,10 @@ const typeMap: any = {
     ],
     false
   ),
-  Collection: object([{ json: "href", js: "href", typ: union(undefined, "") }], false),
+  Collection: object(
+    [{ json: "href", js: "href", typ: union(undefined, "") }],
+    false
+  ),
   ShippingLine: object(
     [
       { json: "id", js: "id", typ: union(undefined, 0) },
@@ -162,8 +221,12 @@ const typeMap: any = {
       { json: "method_id", js: "methodID", typ: union(undefined, "") },
       { json: "total", js: "total", typ: union(undefined, "") },
       { json: "total_tax", js: "totalTax", typ: union(undefined, "") },
-      { json: "taxes", js: "taxes", typ: union(undefined, array("any")) },
-      { json: "meta_data", js: "metaData", typ: union(undefined, array("any")) },
+      { json: "taxes", js: "taxes", typ: union(undefined, array("unknown")) },
+      {
+        json: "meta_data",
+        js: "metaData",
+        typ: union(undefined, array("unknown")),
+      },
     ],
     false
   ),
@@ -180,18 +243,22 @@ const typeMap: any = {
         js: "shippingTaxTotal",
         typ: union(undefined, ""),
       },
-      { json: "meta_data", js: "metaData", typ: union(undefined, array("any")) },
+      {
+        json: "meta_data",
+        js: "metaData",
+        typ: union(undefined, array("unknown")),
+      },
     ],
     false
   ),
-    Refund: object(
+  Refund: object(
     [
       { json: "id", js: "id", typ: union(undefined, 0) },
-      { json: "date_created", js: "dateCreated", typ: union(undefined, Date) },
+      { json: "date_created", js: "dateCreated", typ: union(undefined, "") },
       {
         json: "date_created_gmt",
         js: "dateCreatedGmt",
-        typ: union(undefined, Date),
+        typ: union(undefined, ""),
       },
       { json: "amount", js: "amount", typ: union(undefined, "") },
       { json: "reason", js: "reason", typ: union(undefined, "") },
