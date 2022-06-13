@@ -15,9 +15,12 @@ abstract class LineItems {
   }
 
   public static hasReducedRate(item: LineItem): boolean {
-    if (item.tax_class === "reduced-rate" || item.tax_class === "normal-rate") {
+    if (
+      parseFloat(item.total) !== 0 &&
+      !/\b(reduced|normal)\b-rate/.test(item.tax_class)
+    ) {
       throw new Error(
-        "Tax Class in Items of Order are only expected to have either 'normal-rate' or 'reduced-rate'"
+        "Tax Class in Items in Order are only expected to have either 'normal-rate' or 'reduced-rate' if cost of item is non-zero."
       );
     }
     return item.tax_class === "reduced-rate";

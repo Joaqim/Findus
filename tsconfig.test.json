@@ -11,11 +11,6 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "baseUrl": ".",
-    "paths": {
-      "findus": [
-        "src"
-      ]
-    },
     "types": [
       "mocha",
       "chai"

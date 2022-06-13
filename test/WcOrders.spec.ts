@@ -1,16 +1,31 @@
 import { expect } from "chai";
 
-import { TaxLabel, WcOrders } from "../src";
+import {
+  Customers,
+  Invoices,
+  TaxLabel,
+  WcOrder,
+  WcOrders,
+  WooConvert
+} from "../src";
 
+import wooOrders from "./orders.mock.json";
 import taxes from "./taxes.mock";
 
 describe("WcOrders", () => {
-  it("Gets TAX Rate", () => {
+  it("Can verify Order from WooCommerce", () => {
+    let order = WooConvert.toWcOrder(JSON.stringify(wooOrders.data[0]));
+    expect(() => WcOrders.tryVerifyOrder(order)).to.not.throw();
+    order.prices_include_tax = false;
+    expect(() => WcOrders.tryVerifyOrder(order)).to.throw();
+  });
+
+  it("Gets VAT Rates from Order", () => {
     let rate = WcOrders.getTaxRate(taxes["FR"][0]);
     expect(rate).to.equal(0.055);
   });
 
-  it("Generates VAT Labels", () => {
+  it("Gets VAT Labels (reduced/standard) from Order", () => {
     let taxLines = [
       { id: 0, label: "13% VAT" },
       { id: 1, label: "10% VAT" },
@@ -44,7 +59,9 @@ describe("WcOrders", () => {
       expect(taxes.reduced.vat).to.equal(reducedVAT);
     };
 
-    // Expect reversed input to still be ordered with Standard at index 0
+    // Expect reversed input to still be ordered
+    // with Standard Rate at index 0
+
     expectTaxes(
       WcOrders.tryGetTaxRateLabels(taxes["FR"].reverse()),
       0.2,
@@ -52,5 +69,27 @@ describe("WcOrders", () => {
     );
 
     expectTaxes(WcOrders.tryGetTaxRateLabels(taxes["FR"]), 0.2, 0.055);
+  });
+
+  it("Gets Customer Name from shipping/billing addresses", () => {
+    let order: WcOrder = {
+      ...WooConvert.toWcOrder(JSON.stringify(wooOrders.data[0])),
+    };
+
+    const invoice = Invoices.tryCreateInvoice(order);
+    const customer = Customers.tryCreateCustomer(invoice);
+
+    expect(customer.Name).to.equal(invoice.CustomerName);
+
+    expect(customer.Email).to.equal(invoice.EmailInformation?.EmailAddressTo);
+
+    // TODO: make utility function to compare matching keys with entries
+    expect(customer.Address1).to.equal(invoice.Address1);
+    expect(customer.Address2).to.equal(invoice.Address2);
+    expect(customer.Country).to.equal(invoice.Country);
+
+    expect(customer.DeliveryAddress1).to.equal(invoice.DeliveryAddress1);
+    expect(customer.DeliveryAddress2).to.equal(invoice.DeliveryAddress2);
+    expect(customer.DeliveryCountry).to.equal(invoice.DeliveryCountry);
   });
 });

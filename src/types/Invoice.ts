@@ -42,6 +42,15 @@ export interface InvoiceRow {
   VAT?: number;
 }
 
+export interface EmailInformation {
+  EmailAddressFrom?: string;
+  EmailAddressTo?: string;
+  EmailAddressCC?: string;
+  EmailAddressBCC?: string;
+  EmailSubject?: string;
+  EmailBody?: string;
+}
+
 export default interface Invoice {
   Url?: string;
   UrlTaxReductionList?: string;
@@ -59,7 +68,7 @@ export default interface Invoice {
   ContributionPercent?: number;
   ContributionValue?: number;
   CostCenter?: string;
-  Country?: string;
+  Country: string;
   Credit?: boolean;
   CreditInvoiceReference?: number;
   Currency: string;
@@ -70,13 +79,14 @@ export default interface Invoice {
   DeliveryAddress1?: string;
   DeliveryAddress2?: string;
   DeliveryCity?: string;
-  DeliveryCountry?: string;
+  DeliveryCountry: string;
   DeliveryDate?: null;
   DeliveryName?: string;
   DeliveryZipCode?: string;
   DocumentNumber?: string;
   DueDate?: Date;
   EdiInformation?: EDIInformation;
+  EmailInformation?: EmailInformation;
   EuQuarterlyReport?: boolean;
   ExternalInvoiceReference1?: string;
   ExternalInvoiceReference2?: string;

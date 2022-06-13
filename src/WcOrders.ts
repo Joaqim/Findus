@@ -1,5 +1,6 @@
 import type { Rate } from "./Accounts";
 import CultureInfo from "./CultureInfo";
+import LineItems from "./LineItems";
 import type { Customer, LineItem, MetaData, TaxLine, WcOrder } from "./types";
 
 export interface TaxLabel {
@@ -8,6 +9,14 @@ export interface TaxLabel {
 }
 
 abstract class WcOrders {
+  public static tryVerifyOrder(order: WcOrder) {
+    if (!order.prices_include_tax) {
+      throw new Error(
+        `Unexpected: 'prices_include_tax' is ${false}, expected: true`
+      );
+    }
+  }
+
   public static getPaymentMethod(order: WcOrder): "Stripe" | "PayPal" {
     const { payment_method } = order;
 
@@ -32,6 +41,100 @@ abstract class WcOrders {
     );
   }
 
+  public static tryGetAccurateTotal(order: WcOrder): number {
+    let total = 0;
+    order.line_items.forEach((item) => {
+      total += item.price * item.quantity + LineItems.getAccurateTaxTotal(item);
+    });
+
+    total += parseFloat(order.shipping_total) + parseFloat(order.shipping_tax);
+
+    const diff = Math.abs(total - parseFloat(order.total));
+
+    // Should not deviate more than 1-E15 from WooCommerce total cost
+    if (diff > 0.000_000_000_000_001) {
+      throw new Error(
+        `WooCommerce order total does not match calculated total. Difference: ${total}, ${order.total} = ${diff}`
+      );
+    }
+    return total;
+  }
+
+  public static tryVerifyCurrencyRate(
+    order: WcOrder,
+    currencyRate = 1
+  ): number {
+    if (order.currency === "SEK") {
+      if (currencyRate !== 1)
+        throw new Error(`Unexpected Currency Rate for SEK: ${currencyRate}`);
+      return currencyRate;
+    }
+
+    if (currencyRate !== 1) {
+      return currencyRate;
+    }
+    return WcOrders.tryGetCurrencyRate(order);
+  }
+
+  public static tryGetCurrencyRate(
+    order: WcOrder,
+    accurateTotal?: number
+  ): number {
+    const paymentMethod = WcOrders.getPaymentMethod(order);
+
+    if (paymentMethod !== "Stripe") {
+      throw new Error(
+        `Findus can only deduce Currency Rate with Stripe payments. Unsupported payment method: ${paymentMethod} - ${order.payment_method_title}`
+      );
+    }
+
+    const stripeCharge = order.meta_data.find(
+      (d) => d.key === "_stripe_charge_captured"
+    )?.value as string;
+    const stripeFee = order.meta_data.find((d) => d.key === "_stripe_fee")
+      ?.value as string;
+    const stripeNet = order.meta_data.find((d) => d.key === "_stripe_net")
+      ?.value as string;
+    const stripeCurrency = order.meta_data.find(
+      (d) => d.key === "_stripe_currency"
+    )?.value as string;
+
+    if (!stripeCharge || parseFloat(stripeCharge) <= 0) {
+      throw new Error(
+        `Unexpected: Order 'meta_data' of key '_stripe_charge_captured' has value '${stripeCharge}' `
+      );
+    }
+
+    if (!stripeFee || parseFloat(stripeFee) <= 0) {
+      throw new Error(
+        `Unexpected: Order 'meta_data' of key '_stripe_fee' has value '${stripeFee}' `
+      );
+    }
+
+    if (!stripeNet) {
+      throw new Error(
+        `Unexpected: Order 'meta_data' of key '_stripe_net' has value '${stripeNet}' `
+      );
+    }
+
+    if (!stripeCurrency) {
+      throw new Error(
+        `Unexpected: Order 'meta_data' of key '_stripe_currency' has value '${stripeCurrency}' `
+      );
+    }
+
+    if (stripeCurrency !== "SEK") {
+      throw new Error(
+        `Stripe Payment with currency: ${stripeCurrency} is unexpected`
+      );
+    }
+
+    const total = accurateTotal ?? WcOrders.tryGetAccurateTotal(order);
+    const stripeCurrencyRate =
+      (parseFloat(stripeFee) + parseFloat(stripeNet)) / total;
+    return stripeCurrencyRate;
+  }
+
   public static verifyRateForItem(
     order: WcOrder,
     rate: Rate,
@@ -41,10 +144,17 @@ abstract class WcOrders {
       return { vat: 0, label: "0% Vat" };
     }
 
-    const isStandard = item.tax_class !== "reduced-rate";
     const taxRates = WcOrders.tryGetTaxRateLabels(order.tax_lines);
-
-    const taxLabel = isStandard ? taxRates.standard : taxRates.reduced;
+    var taxLabel: TaxLabel;
+    if (Object.is(taxRates.standard, taxRates.reduced)) {
+      taxLabel = taxRates.standard;
+    } else {
+      if (item.tax_class === "") {
+        throw new Error(`Unexpected empty tax class for item: '${item.name}', expected either 'normal-rate' or 'reduced-rate'`);
+      }
+      const isStandard = item.tax_class !== "reduced-rate";
+      taxLabel = isStandard ? taxRates.standard : taxRates.reduced;
+    }
 
     if (rate.vat !== taxLabel.vat) {
       throw new Error(
@@ -79,6 +189,7 @@ abstract class WcOrders {
     reduced: TaxLabel;
   } {
     let labels: TaxLabel[] = [];
+
     taxes.forEach((tax: TaxLine) => {
       const vat = WcOrders.getTaxRate(tax);
       const taxLabel = { vat, label: tax.label };
@@ -87,7 +198,7 @@ abstract class WcOrders {
         throw new Error("Missing tax label");
       }
 
-      // Make sure lowest VAT is last value in tuple
+      // Make sure lowest VAT is the last value in tuple
       if (labels[0]?.vat >= vat) labels.push(taxLabel);
       else labels = [taxLabel, ...labels];
     });
@@ -148,7 +259,7 @@ abstract class WcOrders {
 
     if (!reference) {
       throw new Error(
-        `Order: ${order.id} is missing '_fortnox_invoice_number' referenec in meta data.`
+        `Order is missing '_fortnox_invoice_number' referenced in meta data.`
       );
     }
     return parseInt(reference, 10);
@@ -168,40 +279,46 @@ abstract class WcOrders {
   }
 
   public static tryGetCustomerName(order: WcOrder): string {
-    if (order.billing.first_name || order.billing.last_name) {
-      return `${order.billing.first_name} ${order.billing.last_name}`.trim();
+    try {
+      return this.tryGetBillingName(order);
+    } catch {
+      try {
+        return this.tryGetDeliveryName(order);
+      } catch {
+        throw new Error(
+          `Order is missing customer name for 'billing' and failed to fallback to 'shipping'`
+        );
+      }
     }
-
-    if (order.shipping.first_name || order.shipping.last_name) {
-      return `${order.shipping.first_name} ${order.shipping.last_name}`.trim();
-    }
-    throw new Error(`Order: ${order.id} is missing customer name for billing`);
   }
 
   public static tryGetDeliveryName(order: WcOrder): string {
     if (order.shipping.first_name || order.shipping.last_name) {
       return `${order.shipping.first_name} ${order.shipping.last_name}`.trim();
     }
+    throw new Error(`Order is missing customer name for shipping`);
+  }
 
+  public static tryGetBillingName(order: WcOrder): string {
     if (order.billing.first_name || order.billing.last_name) {
       return `${order.billing.first_name} ${order.billing.last_name}`.trim();
     }
-    throw new Error(`Order: ${order.id} is missing customer name for delivery`);
+    throw new Error(`Order is missing customer name for billing`);
   }
 
   public static tryGetAddresses(order: WcOrder): Customer {
     return {
       Country: CultureInfo.tryGetEnglishName(order.billing.country),
-      Address1: order.billing.address_1 ?? order.shipping.address_1,
-      Address2: order.billing.address_2 ?? order.shipping.address_2,
-      ZipCode: order.billing.postcode ?? order.shipping.postcode,
-      City: order.billing.city ?? order.shipping.city,
+      Address1: order.billing.address_1,
+      Address2: order.billing.address_2,
+      ZipCode: order.billing.postcode,
+      City: order.billing.city,
 
       DeliveryCountry: CultureInfo.tryGetEnglishName(order.shipping.country),
-      DeliveryAddress1: order.shipping.address_1 ?? order.billing.address_1,
-      DeliveryAddress2: order.shipping.address_2 ?? order.billing.address_2,
-      DeliveryZipCode: order.shipping.postcode ?? order.billing.postcode,
-      DeliveryCity: order.shipping.city ?? order.billing.city,
+      DeliveryAddress1: order.shipping.address_1,
+      DeliveryAddress2: order.shipping.address_2,
+      DeliveryZipCode: order.shipping.postcode,
+      DeliveryCity: order.shipping.city,
     };
   }
 }

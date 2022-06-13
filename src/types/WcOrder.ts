@@ -18,7 +18,7 @@ export interface Address {
   state?: string;
   postcode: string;
   country: string;
-  email: string;
+  email?: string;
   phone?: string;
 }
 
@@ -42,7 +42,7 @@ export interface LineItem {
   product_id: number;
   variation_id?: number;
   quantity: number;
-  tax_class: string;
+  tax_class: string; // "reduced-rate" | "normal-rate" | "";
   subtotal: string;
   subtotal_tax: string;
   total: string;
@@ -101,15 +101,15 @@ export interface TaxLine {
 
 export interface Refund {
   id: number;
-  date_created: string;
-  date_created_gmt: string;
+  date_created?: string;
+  date_created_gmt?: string;
   amount: string;
   reason: string;
-  refunded_by: number;
-  refunded_payment: boolean;
+  refunded_by?: number;
+  refunded_payment?: boolean;
   meta_data: MetaData[];
   line_items: LineItem[];
-  links: Links;
+  links?: Links;
 }
 
 export default interface WcOrder {
@@ -131,7 +131,7 @@ export default interface WcOrder {
   customer_id?: number;
   order_key: string;
   billing: Address;
-  shipping: Address;
+  shipping: Omit<Address, "email">;
   payment_method: string;
   payment_method_title: string;
   transaction_id?: string;

@@ -20,6 +20,19 @@ abstract class CultureInfo {
   public static isInsideEU(countryIso: string): boolean {
     return EUCountries.includes(countryIso.toUpperCase());
   }
+
+  public static tryGetCountryIso(countryNameOrIso: string): string {
+    if (this.cultures.has(countryNameOrIso)) return countryNameOrIso;
+
+    let result;
+    Object.entries(cultures).forEach(([iso, countryName]): void => {
+      if (countryNameOrIso === countryName) result = iso;
+    });
+
+    if (!result)
+      throw new Error(`Could not deduce Country Iso from ${countryNameOrIso}`);
+    return result;
+  }
 }
 
 export default CultureInfo;

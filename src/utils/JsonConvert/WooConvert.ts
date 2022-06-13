@@ -1,13 +1,13 @@
 /* eslint
          no-empty: ["error", { "allowEmptyCatch": true }]
 */
-import type { WcOrder } from "src/types";
+import type { WcOrder } from "../../types";
 
 interface ArrayType extends Record<string, unknown> {
   arrayItems: unknown;
 }
 interface ReferenceType extends Record<string, unknown> {
-  ref: string;
+  reference: string;
 }
 
 interface UnionType extends Record<string, unknown> {
@@ -15,7 +15,7 @@ interface UnionType extends Record<string, unknown> {
 }
 
 interface ObjectType extends Record<string, unknown> {
-  props: unknown[];
+  properties: unknown[];
   // eslint-disable-next-line no-use-before-define
   additional: Types[] | Types[] | unknown;
   // eslint-disable-next-line no-use-before-define
@@ -44,17 +44,17 @@ function union(...typs: unknown[]): UnionType {
 }
 
 function object(properties: unknown[], additional: unknown): ObjectType {
-  return { props: properties, additional };
+  return { properties, additional };
 }
 
 function reference(name: string): ReferenceType {
-  return { ref: name };
+  return { reference: name };
 }
 
 function jsonToJSProperties(typ: ObjectType): Record<string, PropertyType> {
   if (typ.jsonToJS === undefined) {
     const map: Record<string, PropertyType> = {};
-    typ.props.forEach((p) => {
+    typ.properties.forEach((p) => {
       const { json, js, typ: typ_ } = p as JSONProperty;
       map[json] = { key: js, typ: typ_ };
     });
@@ -66,7 +66,7 @@ function jsonToJSProperties(typ: ObjectType): Record<string, PropertyType> {
 function jsToJSONProperties(typ: ObjectType): Record<string, PropertyType> {
   if (typ.jsToJSON === undefined) {
     const map: Record<string, PropertyType> = {};
-    typ.props.forEach((p) => {
+    typ.properties.forEach((p) => {
       const { json, js, typ: typ_ } = p as JSONProperty;
       map[json] = { key: js, typ: typ_ };
     });
@@ -1143,8 +1143,11 @@ function transform(
 
   if (typ === false) return invalidValue(typ, value);
 
-  while (typeof typ === "object" && (typ as ReferenceType).ref !== undefined) {
-    typ = typeMap[(typ as ReferenceType).ref];
+  while (
+    typeof typ === "object" &&
+    (typ as ReferenceType).reference !== undefined
+  ) {
+    typ = typeMap[(typ as ReferenceType).reference];
   }
 
   if (Array.isArray(typ) && typeof value === "string")
@@ -1152,6 +1155,7 @@ function transform(
 
   if (typeof typ === "object") {
     if (Object.prototype.hasOwnProperty.call(typ, "unionMembers")) {
+
       return transformUnion((typ as UnionType).unionMembers, value);
     }
 
@@ -1159,7 +1163,7 @@ function transform(
       return transformArray((typ as ArrayType).arrayItems, value);
     }
 
-    if (Object.prototype.hasOwnProperty.call(typ, "props")) {
+    if (Object.prototype.hasOwnProperty.call(typ, "properties")) {
       return transformObject(
         getProperties(typ as ObjectType),
         (typ as ObjectType).additional,
@@ -1174,7 +1178,7 @@ function transform(
       ? transformUnion(typ.unionMembers, value)
       : typ.hasOwnProperty("arrayItems")
       ? transformArray(typ.arrayItems, value)
-      : typ.hasOwnProperty("props")
+      : typ.hasOwnProperty("properties")
       ? transformObject(getProperties(typ), typ.additional, value)
       : invalidValue(typ, value);
       */

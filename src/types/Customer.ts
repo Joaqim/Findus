@@ -22,7 +22,7 @@ export default interface Customer {
   City?: string;
   Comments?: string;
   CostCenter?: string;
-  Country?: string;
+  Country: string;
   CountryCode?: string;
   Currency?: string;
   CustomerNumber?: string;
@@ -31,7 +31,7 @@ export default interface Customer {
   DeliveryAddress1?: string;
   DeliveryAddress2?: string;
   DeliveryCity?: string;
-  DeliveryCountry?: string;
+  DeliveryCountry: string;
   DeliveryCountryCode?: string;
   DeliveryFax?: string;
   DeliveryName?: string;
