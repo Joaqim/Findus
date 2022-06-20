@@ -260,8 +260,12 @@ export default abstract class Invoices {
 
   public static tryCreateInvoice(
     order: WcOrder,
-    currencyRate: number | null = 1
+    currencyRate?: number | undefined
   ): Invoice {
+    if (!order.billing.email) {
+      throw new Error("Order is missing customer email in 'billing'");
+    }
+
     const invoice: Invoice = {
       ...this.tryGenerateCashPaymentInvoice(order),
 

@@ -120,23 +120,23 @@ abstract class WcOrders {
 
   public static tryVerifyCurrencyRate(
     order: WcOrder,
-    currencyRate: number | null
+    currencyRate: number | undefined
   ): number | undefined {
-    // NOTE: No need to check as we will infer currency rate from Fortnox.
-    if (currencyRate === null) {
+    if (order.currency === "SEK") {
+      if (currencyRate && currencyRate !== 1)
+        throw new Error(`Unexpected Currency Rate for SEK: ${currencyRate}`);
+      return 1;
+    }
+
+    if (currencyRate) {
+      return currencyRate;
+    }
+
+    try {
+      return WcOrders.tryGetCurrencyRate(order);
+    } catch {
       return undefined;
     }
-
-    if (order.currency === "SEK") {
-      if (currencyRate !== 1)
-        throw new Error(`Unexpected Currency Rate for SEK: ${currencyRate}`);
-      return currencyRate;
-    }
-
-    if (currencyRate !== 1) {
-      return currencyRate;
-    }
-    return WcOrders.tryGetCurrencyRate(order);
   }
 
   public static tryGetCurrencyRate(
@@ -334,11 +334,11 @@ abstract class WcOrders {
   public static tryCanBeRefunded(order: WcOrder): boolean {
     if (order.status === "completed" && order.refunds?.length === 0) {
       throw new Error(
-        "Order status is 'completed' and is not partially refunded."
+        "Order status is 'completed' but has no partial refunds."
       );
     } else if (order.status !== "refunded") {
       throw new Error(
-        `Unexpected order status: '${order.status}', expected 'refunded' or alternatively 'completed' with partial refund.`
+        `Unexpected order status: '${order.status}', expected full refund 'refunded' or partial refund 'completed'.`
       );
     }
     return true;
