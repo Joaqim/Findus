@@ -1,17 +1,20 @@
 import { expect } from "chai";
 import type { Invoice, Refund, WcOrder } from "../src";
-import { Articles, CultureInfo, Customers, Invoices, WooConvert } from "../src";
+import { Articles, CultureInfo, Customers, Invoices } from "../src";
+
+import { Convert } from "wooconvert";
 
 import wooOrders from "./orders.mock.json";
+import wooOrdersNaudrinks from "./orders.naudrinks.json";
 import wooOrdersPartialRefund from "./orders.partial_refunds.json";
 import refundItemMock from "./partialrefundItems.mock.json";
 
 describe("Invoice, Customer & Articles", () => {
   it("Can process French order in EUR", () => {
-    const order = WooConvert.toWcOrder(JSON.stringify(wooOrders.data[0]));
+    const order = Convert.toWcOrder(JSON.stringify(wooOrders.data[0]));
 
     const invoice = Invoices.tryCreateInvoice(order);
-    console.log(invoice);
+    // console.log(invoice);
 
     expect(invoice.Country).to.equal(
       CultureInfo.tryGetEnglishName(order.billing.country)
@@ -40,7 +43,7 @@ describe("Invoice, Customer & Articles", () => {
   });
 
   it("Can process Swedish order in SEK", () => {
-    const order = WooConvert.toWcOrder(JSON.stringify(wooOrders.data[0]));
+    const order = Convert.toWcOrder(JSON.stringify(wooOrders.data[0]));
     const orderSEK: WcOrder = {
       ...order,
       billing: { ...order.billing, country: "SE" },
@@ -59,31 +62,48 @@ describe("Invoice, Customer & Articles", () => {
   });
 
   it("Can process Canadian order in USD", () => {
-    const order = WooConvert.toWcOrder(JSON.stringify(wooOrders.data[0]));
+    const order = Convert.toWcOrder(JSON.stringify(wooOrders.data[0]));
     const orderUSD: WcOrder = {
       ...order,
       billing: { ...order.billing, country: "CA" },
       shipping: { ...order.shipping, country: "CA" },
       currency: "USD",
       payment_method: "stripe",
+      meta_data: [],
     };
 
-    const invoiceUSD = Invoices.tryCreateInvoice(orderUSD);
-    expect(invoiceUSD.CurrencyRate).to.not.equal(1);
-    expect(() => Invoices.tryCreateInvoice(orderUSD, 1.23)).to.not.throw();
+    const invoiceUSD = Invoices.tryCreateInvoice(orderUSD, 1.23);
 
     const customerUSD = Customers.tryCreateCustomer(invoiceUSD);
     expect(customerUSD.VATType).to.equal("EXPORT");
   });
 
+  describe("Can process Orders from Naudrinks", () => {
+    it("Can process Swedish order in SEK", () => {
+      const orderSEK = Convert.toWcOrder(JSON.stringify(wooOrdersNaudrinks[0]));
+
+      const invoiceSEK = Invoices.tryCreateInvoice(orderSEK);
+
+      const customerSEK = Customers.tryCreateCustomer(invoiceSEK);
+      expect(customerSEK.VATType).to.equal("SEVAT");
+    });
+
+    it("Can process multiple real orders", () => {
+      let invoice: Invoice;
+      for (const order of wooOrdersNaudrinks) {
+        const mockCurrencyRate = order.currency === "SEK" ? 1 : 1.234;
+        invoice = Invoices.tryCreateInvoice(
+          Convert.toWcOrder(JSON.stringify(order)),
+          mockCurrencyRate
+        );
+      }
+    });
+  });
+
   it("Can create a Credit Invoice for partial refund of Order", () => {
-    const order = WooConvert.toWcOrder(
-      JSON.stringify(wooOrdersPartialRefund[0])
-    );
+    const order = Convert.toWcOrder(JSON.stringify(wooOrdersPartialRefund[0]));
 
-    return;
-
-    const refund: Refund = refundItemMock[0];
+    const refund: Refund = Convert.toRefund(JSON.stringify(refundItemMock[0]));
 
     let mockCreditInvoice: Partial<Invoice> = {
       Credit: true,
@@ -96,6 +116,6 @@ describe("Invoice, Customer & Articles", () => {
       refund
     );
 
-    console.log(creditInvoiceUpdated);
+    // console.log(creditInvoiceUpdated);
   });
 });

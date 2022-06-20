@@ -789,7 +789,8 @@ const typeMap: Record<string, ObjectType> = {
       {
         json: "meta_data",
         js: "meta_data",
-        typ: union(undefined, array(reference("WcOrderMetaDatum"))),
+        // typ: union(undefined, array(reference("WcOrderMetaDatum"))),
+        typ: union(undefined, array("unknown")),
       },
       {
         json: "line_items",
@@ -1155,7 +1156,6 @@ function transform(
 
   if (typeof typ === "object") {
     if (Object.prototype.hasOwnProperty.call(typ, "unionMembers")) {
-
       return transformUnion((typ as UnionType).unionMembers, value);
     }
 

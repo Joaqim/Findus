@@ -1,7 +1,13 @@
 import type { Rate } from "./Accounts";
 import CultureInfo from "./CultureInfo";
 import LineItems from "./LineItems";
-import type { Customer, LineItem, MetaData, TaxLine, WcOrder } from "./types";
+import type {
+  Customer,
+  WcOrder,
+  WcOrderLineItem,
+  WcOrderMetaData,
+  WcOrderTaxLine,
+} from "./types";
 
 export interface TaxLabel {
   vat: number;
@@ -9,7 +15,7 @@ export interface TaxLabel {
 }
 
 abstract class WcOrders {
-  public static tryVerifyOrder(order: WcOrder) {
+  public static tryVerifyOrder(order: WcOrder): void {
     if (!order.prices_include_tax) {
       throw new Error(
         `Unexpected: 'prices_include_tax' is ${false}, expected: true`
@@ -17,7 +23,58 @@ abstract class WcOrders {
     }
   }
 
-  public static getPaymentMethod(order: WcOrder): "Stripe" | "PayPal" {
+  public static getPaymentFee(
+    order: WcOrder,
+    paymentMethod: string
+  ): number | undefined {
+    let paymentFee: number | undefined;
+
+    const getMetaData = (
+      metaDatas: WcOrderMetaData[],
+      key: string
+    ): WcOrderMetaData | undefined =>
+      metaDatas.find((value: WcOrderMetaData) => value.key === key);
+
+    if (paymentMethod === "Stripe") {
+      paymentFee = parseFloat(
+        getMetaData(order.meta_data, "_stripe_fee")?.value as string
+      );
+    } else if (paymentMethod === "PayPal") {
+      paymentFee = parseFloat(
+        getMetaData(order.meta_data, "_paypal_transaction_fee")?.value as string
+      );
+    }
+    return paymentFee;
+  }
+
+  public static hasPaymentFee(order: WcOrder, paymentMethod: string): boolean {
+    const paymentFee = WcOrders.getPaymentFee(order, paymentMethod);
+    return typeof paymentFee === "number" && paymentFee > 0;
+  }
+
+  public static getPaymentMethod(
+    order: WcOrder
+  ): "Stripe" | "PayPal" | undefined {
+    try {
+      return this.tryGetPaymentMethod(order);
+    } catch {
+      return undefined;
+    }
+  }
+
+  public static getShippingTotal(order: WcOrder): number {
+    return typeof order.shipping_total === "string"
+      ? parseFloat(order.shipping_total)
+      : order.shipping_total;
+  }
+
+  public static getShippingTax(order: WcOrder): number {
+    return typeof order.shipping_tax === "string"
+      ? parseFloat(order.shipping_tax)
+      : order.shipping_tax;
+  }
+
+  public static tryGetPaymentMethod(order: WcOrder): "Stripe" | "PayPal" {
     const { payment_method } = order;
 
     /*
@@ -47,12 +104,13 @@ abstract class WcOrders {
       total += item.price * item.quantity + LineItems.getAccurateTaxTotal(item);
     });
 
-    total += parseFloat(order.shipping_total) + parseFloat(order.shipping_tax);
+    // TODO: Is this correct?
+    total += WcOrders.getShippingTotal(order) + WcOrders.getShippingTax(order);
 
     const diff = Math.abs(total - parseFloat(order.total));
 
-    // Should not deviate more than 1-E15 from WooCommerce total cost
-    if (diff > 0.000_000_000_000_001) {
+    // Should not deviate more than 1-E13 from WooCommerce total cost
+    if (diff > 0.000_000_000_000_1) {
       throw new Error(
         `WooCommerce order total does not match calculated total. Difference: ${total}, ${order.total} = ${diff}`
       );
@@ -62,8 +120,13 @@ abstract class WcOrders {
 
   public static tryVerifyCurrencyRate(
     order: WcOrder,
-    currencyRate = 1
-  ): number {
+    currencyRate: number | null
+  ): number | undefined {
+    // NOTE: No need to check as we will infer currency rate from Fortnox.
+    if (currencyRate === null) {
+      return undefined;
+    }
+
     if (order.currency === "SEK") {
       if (currencyRate !== 1)
         throw new Error(`Unexpected Currency Rate for SEK: ${currencyRate}`);
@@ -80,7 +143,7 @@ abstract class WcOrders {
     order: WcOrder,
     accurateTotal?: number
   ): number {
-    const paymentMethod = WcOrders.getPaymentMethod(order);
+    const paymentMethod = WcOrders.tryGetPaymentMethod(order);
 
     if (paymentMethod !== "Stripe") {
       throw new Error(
@@ -138,19 +201,22 @@ abstract class WcOrders {
   public static verifyRateForItem(
     order: WcOrder,
     rate: Rate,
-    item: LineItem
+    item: WcOrderLineItem
   ): TaxLabel {
     if (rate.vat === 0) {
       return { vat: 0, label: "0% Vat" };
     }
 
     const taxRates = WcOrders.tryGetTaxRateLabels(order.tax_lines);
-    var taxLabel: TaxLabel;
+    let taxLabel: TaxLabel;
+
     if (Object.is(taxRates.standard, taxRates.reduced)) {
       taxLabel = taxRates.standard;
     } else {
       if (item.tax_class === "") {
-        throw new Error(`Unexpected empty tax class for item: '${item.name}', expected either 'normal-rate' or 'reduced-rate'`);
+        throw new Error(
+          `Unexpected empty tax class for item: '${item.name}', expected either 'normal-rate' or 'reduced-rate'`
+        );
       }
       const isStandard = item.tax_class !== "reduced-rate";
       taxLabel = isStandard ? taxRates.standard : taxRates.reduced;
@@ -164,7 +230,7 @@ abstract class WcOrders {
     return taxLabel;
   }
 
-  public static getTaxRate(tax: TaxLine): number {
+  public static getTaxRate(tax: WcOrderTaxLine): number {
     const taxLabel = tax.label;
 
     try {
@@ -184,13 +250,13 @@ abstract class WcOrders {
     }
   }
 
-  public static tryGetTaxRateLabels(taxes: TaxLine[]): {
+  public static tryGetTaxRateLabels(taxes: WcOrderTaxLine[]): {
     standard: TaxLabel;
     reduced: TaxLabel;
   } {
     let labels: TaxLabel[] = [];
 
-    taxes.forEach((tax: TaxLine) => {
+    taxes.forEach((tax: WcOrderTaxLine) => {
       const vat = WcOrders.getTaxRate(tax);
       const taxLabel = { vat, label: tax.label };
 
@@ -208,7 +274,7 @@ abstract class WcOrders {
 
   public static getDocumentSource(order: WcOrder): string | null {
     return order.meta_data.find(
-      (entry: MetaData) => entry.key === "pdf_invoice_source"
+      (entry: WcOrderMetaData) => entry.key === "pdf_invoice_source"
     )?.value as string;
   }
 
@@ -218,7 +284,7 @@ abstract class WcOrders {
   ): string {
     // Try to get Document link from metadata
     const pdfLink = order.meta_data.find(
-      (entry: MetaData) => entry.key === "_wcpdf_document_link"
+      (entry: WcOrderMetaData) => entry.key === "_wcpdf_document_link"
     )?.value as string;
 
     if (pdfLink && pdfLink !== "") {
@@ -226,7 +292,7 @@ abstract class WcOrders {
     }
     // Try to get Order key from metadata
     let orderKey = order.meta_data.find(
-      (entry: MetaData) => entry.key === "_wc_order_key"
+      (entry: WcOrderMetaData) => entry.key === "_wc_order_key"
     )?.value;
 
     if (!orderKey) {
@@ -239,7 +305,7 @@ abstract class WcOrders {
 
     if (!storefrontUrl) {
       const url = order.meta_data.find(
-        (entry: MetaData) => entry.key === "storefront_url"
+        (entry: WcOrderMetaData) => entry.key === "storefront_url"
       )?.value;
 
       if (!url) {
@@ -254,7 +320,7 @@ abstract class WcOrders {
   public static tryGetInvoiceReference(order: WcOrder): number {
     if (!order.meta_data) return 0;
     const reference = order.meta_data.find(
-      (entry: MetaData) => entry.key === "_fortnox_invoice_number"
+      (entry: WcOrderMetaData) => entry.key === "_fortnox_invoice_number"
     )?.value as string;
 
     if (!reference) {

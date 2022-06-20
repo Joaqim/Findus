@@ -1,8 +1,9 @@
 /* eslint-disable class-methods-use-this */
-import Accounts, { Rate } from "./Accounts";
+import type { Rate } from "./Accounts";
+import Accounts from "./Accounts";
 import CultureInfo from "./CultureInfo";
 import LineItems from "./LineItems";
-import type { Invoice, InvoiceRow, MetaData, Refund, WcOrder } from "./types";
+import type { Invoice, InvoiceRow, Refund, WcOrder } from "./types";
 import WcOrders from "./WcOrders";
 
 export default abstract class Invoices {
@@ -34,24 +35,29 @@ export default abstract class Invoices {
 
     creditInvoice.InvoiceRows = [];
 
-    const refundAmount = parseFloat(refund.amount);
+    // const refundAmount = parseFloat(refund.amount);
 
+    /*
     if (!refund.line_items && refundAmount > 0) {
-      const taxLabels = WcOrders.tryGetTaxRateLabels(order.tax_lines);
-      const rate = taxLabels.reduced ?? taxLabels.standard;
-      /* creditInvoice.InvoiceRows.push({
-      }); */
+      //const taxLabels = WcOrders.tryGetTaxRateLabels(order.tax_lines);
+      // const rate = taxLabels.reduced ?? taxLabels.standard;
+      //creditInvoice.InvoiceRows.push({ });
     }
+    */
 
     for (const item of refund.line_items) {
-      const account = Accounts.tryGetSalesRateForItem(order, item);
-      creditInvoice.InvoiceRows.push({
-        AccountNumber: account.accountNumber,
-        ArticleNumber: item.sku,
-        VAT: account.vat,
-        DeliveredQuantity: item.quantity,
-        Price: LineItems.getTotalWithTax(item),
-      });
+      const price = LineItems.getTotalWithTax(item);
+
+      if (price > 0) {
+        const account = Accounts.tryGetSalesRateForItem(order, item);
+        creditInvoice.InvoiceRows.push({
+          AccountNumber: account.accountNumber,
+          ArticleNumber: item.sku,
+          VAT: account.vat,
+          DeliveredQuantity: item.quantity,
+          Price: price,
+        });
+      }
     }
 
     return creditInvoice;
@@ -64,13 +70,17 @@ export default abstract class Invoices {
     const invoiceRows: InvoiceRow[] = [];
 
     order.line_items.forEach((item): void => {
-      const account = Accounts.tryGetSalesRateForItem(order, item);
-      invoiceRows.push({
-        ArticleNumber: item.sku,
-        DeliveredQuantity: item.quantity,
-        AccountNumber: account.accountNumber,
-        Price: LineItems.getTotalWithTax(item),
-      });
+      const price = LineItems.getTotalWithTax(item);
+
+      if (price > 0) {
+        const account = Accounts.tryGetSalesRateForItem(order, item);
+        invoiceRows.push({
+          ArticleNumber: item.sku,
+          DeliveredQuantity: item.quantity,
+          AccountNumber: account.accountNumber,
+          Price: price,
+        });
+      }
     });
     return {
       ...creditInvoice,
@@ -84,7 +94,7 @@ export default abstract class Invoices {
     const orderId = order.id.toString();
 
     const orderPrefix = order.meta_data.find(
-      (meta: MetaData) => meta.key === "storefront_prefix"
+      (meta) => meta.key === "storefront_prefix"
     )?.value;
 
     return {
@@ -114,19 +124,23 @@ export default abstract class Invoices {
   ): InvoiceRow[] {
     const invoiceRows: InvoiceRow[] = [];
 
-    let highestRate: Rate | null = null;
+    let highestRate: Rate = { vat: -1, accountNumber: -1 };
+
+    order.line_items.sort((itemA, itemB): number => itemB.price - itemA.price);
 
     for (const item of order.line_items) {
-      const isReduced = item.tax_class !== "reduced-rate";
+      const isReduced = item.price === 0 ?? LineItems.tryHasReducedRate(item);
       const { vat, accountNumber } = Accounts.getRate(
         order.billing.country,
         isReduced,
-        paymentMethod ?? WcOrders.getPaymentMethod(order)
+        paymentMethod ?? WcOrders.tryGetPaymentMethod(order)
       );
 
-      if (item.price > 0 && (!highestRate || vat > highestRate.vat)) {
+      if (item.price > 0 && vat > highestRate.vat) {
         highestRate = { vat, accountNumber };
       }
+
+      // LineItems.tryVerifyRate(item, vat);
 
       invoiceRows.push({
         AccountNumber: accountNumber,
@@ -137,7 +151,7 @@ export default abstract class Invoices {
       });
     }
 
-    if (highestRate === null) {
+    if (highestRate.vat === -1) {
       throw new Error("Could not determine VAT of items in order.");
     }
 
@@ -150,58 +164,67 @@ export default abstract class Invoices {
     invoiceRows: InvoiceRow[],
     order: WcOrder,
     rate: Rate
-  ) {
-    const shippingCost = parseFloat(order.shipping_total);
-    const shippingTax = parseFloat(order.shipping_total);
-    if (!CultureInfo.isInsideEU(order.billing.country) && shippingTax !== 0) {
-      throw new Error(
-        `Unexpected shipping Tax for Order outside EU: Tax: ${shippingTax}, Country: ${order.billing.country}. Expected '0'`
-      );
+  ): void {
+    const shippingCost = WcOrders.getShippingTotal(order);
+
+    if (shippingCost === 0) {
+      return;
     }
 
-    if (shippingCost !== 0) {
-      invoiceRows.push({
-        AccountNumber: 5710,
-        ArticleNumber: "Shipping.Cost",
-        // This shouldn't be needed as 5710 has no pre-defined VAT
-        VAT: 0,
-        Price: shippingCost,
-      });
-      if (shippingTax !== 0) {
-        invoiceRows.push({
-          AccountNumber: rate.accountNumber,
-          ArticleNumber: "Shipping.Cost.VAT",
-          // Do not calculated VAT for this row
-          VAT: 0,
-          Price: shippingTax,
-        });
+    let shippingTax = WcOrders.getShippingTax(order);
+
+    if (
+      !CultureInfo.isInsideEU(order.billing.country) /* && shippingTax > 0 */
+    ) {
+      shippingTax = 0;
+      /*
+      throw new Error(
+        `Unexpected shipping Tax for Order outside EU. Tax: ${shippingTax}, Country: ${order.billing.country}. Expected '0'`
+      );
+      */
+    }
+
+    invoiceRows.push({
+      AccountNumber: 5710,
+      ArticleNumber: "Shipping.Cost",
+      // This shouldn't be needed as 5710 has no pre-defined VAT
+      VAT: 0,
+      Price: shippingCost - shippingTax,
+    });
+
+    if (shippingTax !== 0) {
+      const account = Accounts.tryGetSalesAccountForOrder(order);
+      let accountNumber = 0;
+
+      const wooShippingRate = shippingTax / shippingCost;
+
+      if (account.reduced?.vat.toFixed(3) === wooShippingRate.toFixed(3)) {
+        accountNumber = account.reduced.accountNumber;
+      } else if (
+        account.standard?.vat.toFixed(3) === wooShippingRate.toFixed(3)
+      ) {
+        accountNumber = account.standard?.accountNumber;
+      } else {
+        throw new Error(
+          `Shipping VAT Account not found. VAT: ${wooShippingRate}, expected either reduced: ${account.reduced?.vat}, or standard: ${account.standard.vat} - ${rate.vat}`
+        );
       }
+
+      invoiceRows.push({
+        AccountNumber: accountNumber,
+        ArticleNumber: "Shipping.Cost.VAT",
+        VAT: 0,
+        Price: shippingTax,
+      });
     }
   }
 
   public static tryAddPaymentFee(
     invoiceRows: InvoiceRow[],
     order: WcOrder,
-    rate: Rate,
     paymentMethod: "Stripe" | "PayPal"
-  ) {
-    let paymentFee: number | undefined;
-
-    const getMetaData = (
-      metaDatas: MetaData[],
-      key: string
-    ): MetaData | undefined =>
-      metaDatas.find((value: MetaData) => value.key === key);
-
-    if (paymentMethod === "Stripe") {
-      paymentFee = parseFloat(
-        getMetaData(order.meta_data, "_stripe_fee")?.value as string
-      );
-    } else if (paymentMethod === "PayPal") {
-      paymentFee = parseFloat(
-        getMetaData(order.meta_data, "_paypal_transaction_fee")?.value as string
-      );
-    }
+  ): void {
+    const paymentFee = WcOrders.getPaymentFee(order, paymentMethod);
 
     if (
       !paymentFee ||
@@ -235,7 +258,10 @@ export default abstract class Invoices {
     });
   }
 
-  public static tryCreateInvoice(order: WcOrder, currencyRate = 1): Invoice {
+  public static tryCreateInvoice(
+    order: WcOrder,
+    currencyRate: number | null = 1
+  ): Invoice {
     const invoice: Invoice = {
       ...this.tryGenerateCashPaymentInvoice(order),
 
@@ -257,7 +283,7 @@ export default abstract class Invoices {
       ...WcOrders.tryGetAddresses(order),
 
       // Shipping cost
-      Freight: parseFloat(order.shipping_total),
+      Freight: WcOrders.getShippingTotal(order),
     };
     return invoice;
   }

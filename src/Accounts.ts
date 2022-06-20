@@ -1,7 +1,7 @@
 import SalesAccounts from "./data/SalesAccounts";
 import VatAccounts from "./data/VATAccounts";
 import LineItems from "./LineItems";
-import type { LineItem, WcOrder } from "./types";
+import type { WcOrder, WcOrderLineItem } from "./types";
 import createMapFromRecord from "./utils/createMapFromRecord";
 import WcOrders from "./WcOrders";
 
@@ -40,15 +40,18 @@ abstract class Accounts {
 
   public static tryGetSalesAccountForOrder(order: WcOrder): Account {
     const countryIso = order.billing.country;
-    const paymentMethod = WcOrders.getPaymentMethod(order);
+    const paymentMethod = WcOrders.tryGetPaymentMethod(order);
 
     return this.tryGetSalesAccount(countryIso, paymentMethod);
   }
 
-  public static tryGetSalesRateForItem(order: WcOrder, item: LineItem): Rate {
+  public static tryGetSalesRateForItem(
+    order: WcOrder,
+    item: WcOrderLineItem
+  ): Rate {
     const account = Accounts.tryGetSalesAccountForOrder(order);
 
-    if (LineItems.hasReducedRate(item)) {
+    if (LineItems.tryHasReducedRate(item)) {
       return account.reduced ?? account.standard;
     }
     return account.standard;

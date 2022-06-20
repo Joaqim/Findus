@@ -72,7 +72,7 @@ export default interface Invoice {
   Credit?: boolean;
   CreditInvoiceReference?: number;
   Currency: string;
-  CurrencyRate: number;
+  CurrencyRate?: number;
   CurrencyUnit?: number;
   CustomerName?: string;
   CustomerNumber?: string;

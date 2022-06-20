@@ -1,4 +1,4 @@
-import type { Article, LineItem, WcOrder } from "./types";
+import type { Article, WcOrder, WcOrderLineItem } from "./types";
 
 abstract class Articles {
   public static sanitizeDescriptionForFortnox(description: string): string {
@@ -26,7 +26,7 @@ abstract class Articles {
     return articles;
   }
 
-  private static createArticle(item: LineItem): Article {
+  private static createArticle(item: WcOrderLineItem): Article {
     return {
       ArticleNumber: item.sku,
       Description: Articles.sanitizeDescriptionForFortnox(item.name),
