@@ -3,6 +3,7 @@ import CultureInfo from "./CultureInfo";
 import LineItems from "./LineItems";
 import type {
   Customer,
+  Expense,
   WcOrder,
   WcOrderLineItem,
   WcOrderMetaData,
@@ -23,7 +24,33 @@ abstract class WcOrders {
     }
   }
 
-  public static getPaymentFee(
+  public static tryCreatePaymentFeeExpense(order: WcOrder): Expense {
+    const paymentMethod = WcOrders.tryGetPaymentMethod(order);
+    const paymentFee = WcOrders.getPaymentFee(order, paymentMethod);
+
+    if (
+      !paymentFee ||
+      paymentFee <= 0 ||
+      paymentFee >= parseFloat(order.total)
+    ) {
+      throw new Error(
+        `Unexpected fee amount for '${paymentMethod}': ${paymentFee}`
+      );
+    }
+
+    const expenseCodes = {
+      PayPal: "PAPLFE",
+      Stripe: "STRPFE",
+    };
+
+    return {
+      Code: expenseCodes[paymentMethod],
+      Text: `Betalningsavgift för Order: '${order.id}' via ${paymentMethod}`,
+      Account: 6570,
+    };
+  }
+
+  private static getPaymentFee(
     order: WcOrder,
     paymentMethod: string
   ): number | undefined {
@@ -50,16 +77,6 @@ abstract class WcOrders {
   public static hasPaymentFee(order: WcOrder, paymentMethod: string): boolean {
     const paymentFee = WcOrders.getPaymentFee(order, paymentMethod);
     return typeof paymentFee === "number" && paymentFee > 0;
-  }
-
-  public static getPaymentMethod(
-    order: WcOrder
-  ): "Stripe" | "PayPal" | undefined {
-    try {
-      return this.tryGetPaymentMethod(order);
-    } catch {
-      return undefined;
-    }
   }
 
   public static getShippingTotal(order: WcOrder): number {
@@ -93,8 +110,12 @@ abstract class WcOrders {
       return "PayPal";
     }
 
+    if (order.created_via === "admin") {
+      throw new Error("Order was created manually by 'admin'.");
+    }
+
     throw new Error(
-      `Unexpected Payment Method: '${payment_method}', '${order.payment_method_title}'`
+      `Unexpected Payment Method: '${payment_method}', '${order.payment_method_title}. Order was created by '${order.created_via}'`
     );
   }
 
@@ -372,15 +393,17 @@ abstract class WcOrders {
     throw new Error(`Order is missing customer name for billing`);
   }
 
-  public static tryGetAddresses(order: WcOrder): Customer {
+  public static tryGetAddresses(
+    order: WcOrder
+  ): Omit<Customer, "Country" | "DeliveryCountry"> {
     return {
-      Country: CultureInfo.tryGetEnglishName(order.billing.country),
+      CountryCode: CultureInfo.tryGetCountryIso(order.billing.country),
       Address1: order.billing.address_1,
       Address2: order.billing.address_2,
       ZipCode: order.billing.postcode,
       City: order.billing.city,
 
-      DeliveryCountry: CultureInfo.tryGetEnglishName(order.shipping.country),
+      DeliveryCountryCode: CultureInfo.tryGetCountryIso(order.shipping.country),
       DeliveryAddress1: order.shipping.address_1,
       DeliveryAddress2: order.shipping.address_2,
       DeliveryZipCode: order.shipping.postcode,

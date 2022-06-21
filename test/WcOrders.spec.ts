@@ -1,11 +1,13 @@
 import { expect } from "chai";
 
 import {
+  CultureInfo,
   Customers,
   Invoices,
   TaxLabel,
   WcOrder,
   WcOrders,
+  WcOrderTaxLine,
   WooConvert
 } from "../src";
 
@@ -26,9 +28,23 @@ describe("WcOrders", () => {
   });
 
   it("Gets VAT Labels (reduced/standard) from Order", () => {
-    let taxLines = [
-      { id: 0, label: "13% VAT" },
-      { id: 1, label: "10% VAT" },
+    const mockTaxLine = {
+      rate_code: "0",
+      rate_id: 0,
+      tax_total: 0,
+      shipping_tax_total: 0,
+      compound: true,
+      meta_data: [],
+    };
+
+    let taxLines: WcOrderTaxLine[] = [
+      {
+        ...mockTaxLine,
+        id: 0,
+        label: "13% VAT",
+        rate_percent: 13,
+      },
+      { ...mockTaxLine, id: 1, label: "10% VAT", rate_percent: 10 },
     ];
 
     let taxLabels = WcOrders.tryGetTaxRateLabels(taxLines);
@@ -86,10 +102,14 @@ describe("WcOrders", () => {
     // TODO: make utility function to compare matching keys with entries
     expect(customer.Address1).to.equal(invoice.Address1);
     expect(customer.Address2).to.equal(invoice.Address2);
-    expect(customer.Country).to.equal(invoice.Country);
+    expect(customer.CountryCode).to.equal(
+      CultureInfo.tryGetCountryIso(invoice.Country)
+    );
 
     expect(customer.DeliveryAddress1).to.equal(invoice.DeliveryAddress1);
     expect(customer.DeliveryAddress2).to.equal(invoice.DeliveryAddress2);
-    expect(customer.DeliveryCountry).to.equal(invoice.DeliveryCountry);
+    expect(customer.DeliveryCountryCode).to.equal(
+      CultureInfo.tryGetCountryIso(invoice.DeliveryCountry)
+    );
   });
 });

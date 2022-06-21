@@ -1,4 +1,5 @@
 import type { Tax, WcOrderLineItem } from "./types";
+import { TaxClass } from "./types";
 
 abstract class WcOrderLineItems {
   public static getTotalWithTax(item: WcOrderLineItem): number {
@@ -28,12 +29,22 @@ abstract class WcOrderLineItems {
   }
 
   public static tryHasReducedRate(item: WcOrderLineItem): boolean {
-    if (!/\b(reduced|normal)\b-rate/.test(item.tax_class)) {
+    if (
+      !/\b(reduced|normal)\b-rate/.test(item.tax_class) &&
+      item.price !== 0 &&
+      item.tax_class !== ""
+    ) {
       throw new Error(
         "Tax Class of Item in Orders are only expected to have either 'normal-rate' or 'reduced-rate' if cost of item is non-zero."
       );
     }
-    return item.tax_class === "reduced-rate";
+    return item.tax_class !== "normal-rate";
+
+    if (item.tax_class === TaxClass.Empty)
+      throw new Error(
+        "Tax Class of Item in Orders are only expected to have either 'normal-rate' or 'reduced-rate' if cost of item is non-zero."
+      );
+    return item.tax_class === TaxClass.ReducedRate;
   }
 }
 

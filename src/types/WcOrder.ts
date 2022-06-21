@@ -35,7 +35,7 @@ export interface RefundLineItem {
   product_id: number;
   variation_id: number;
   quantity: number;
-  tax_class: TaxClass;
+  tax_class: string; // TaxClass;
   subtotal: string;
   subtotal_tax: string;
   total: string;
@@ -66,6 +66,7 @@ export enum Key {
 export enum TaxClass {
   Empty = "",
   ReducedRate = "reduced-rate",
+  NormalRate = "normal-rate",
 }
 
 export interface Tax {
@@ -191,7 +192,7 @@ export interface WcOrderLineItem {
   product_id: number;
   variation_id: number;
   quantity: number;
-  tax_class: TaxClass;
+  tax_class: string; // TaxClass;
   subtotal: string;
   subtotal_tax: string;
   total: string;

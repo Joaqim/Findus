@@ -48,14 +48,13 @@ abstract class Customers {
       Address2,
       City,
       ZipCode,
-      Country,
 
       DeliveryName,
       DeliveryAddress1,
       DeliveryAddress2,
       DeliveryCity,
       DeliveryZipCode,
-      DeliveryCountry,
+      DeliveryCountryCode,
     };
   }
 }

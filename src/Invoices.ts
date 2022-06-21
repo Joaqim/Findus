@@ -93,6 +93,11 @@ export default abstract class Invoices {
   ): Omit<Invoice, "Currency" | "CurrencyRate"> {
     const orderId = order.id.toString();
 
+    const Country = CultureInfo.tryGetEnglishName(order.billing.country);
+    const DeliveryCountry = CultureInfo.tryGetEnglishName(
+      order.shipping.country
+    );
+
     const orderPrefix = order.meta_data.find(
       (meta) => meta.key === "storefront_prefix"
     )?.value;
@@ -100,6 +105,8 @@ export default abstract class Invoices {
     return {
       InvoiceType: "CASHINVOICE",
       PaymentWay: "CARD",
+      Country,
+      DeliveryCountry,
 
       VATIncluded: true,
       YourOrderNumber: orderPrefix ? `${orderPrefix}-${orderId}` : orderId,
@@ -129,7 +136,8 @@ export default abstract class Invoices {
     order.line_items.sort((itemA, itemB): number => itemB.price - itemA.price);
 
     for (const item of order.line_items) {
-      const isReduced = item.price === 0 ?? LineItems.tryHasReducedRate(item);
+      // const isReduced = item.price === 0 ?? LineItems.tryHasReducedRate(item);
+      const isReduced = LineItems.tryHasReducedRate(item);
       const { vat, accountNumber } = Accounts.getRate(
         order.billing.country,
         isReduced,
@@ -217,45 +225,6 @@ export default abstract class Invoices {
         Price: shippingTax,
       });
     }
-  }
-
-  public static tryAddPaymentFee(
-    invoiceRows: InvoiceRow[],
-    order: WcOrder,
-    paymentMethod: "Stripe" | "PayPal"
-  ): void {
-    const paymentFee = WcOrders.getPaymentFee(order, paymentMethod);
-
-    if (
-      !paymentFee ||
-      paymentFee <= 0 ||
-      paymentFee >= parseFloat(order.total)
-    ) {
-      throw new Error(
-        `Unexpected fee amount for '${paymentMethod}': ${paymentFee}`
-      );
-    }
-
-    /*
-    let salesAccount = Accounts.getVatAccount(
-      order.billing.country,
-      paymentMethod
-    );
-
-    invoiceRows.push({
-      ArticleNumber: `Payment.Fee.${paymentMethod}`,
-      AccountNumber: salesAccount.standard.accountNumber,
-      Price: paymentFee,
-      Description: `${paymentMethod} Avgift - Utgående`,
-    });
-    */
-
-    invoiceRows.push({
-      AccountNumber: 6570,
-      ArticleNumber: `Payment.Fee.${paymentMethod}`,
-      Price: paymentFee,
-      Description: `${paymentMethod} Avgift`,
-    });
   }
 
   public static tryCreateInvoice(
