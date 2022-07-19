@@ -1,3 +1,3 @@
-# Personal Typescript lib starter 
+# Findus
 
-esbuild conf based on [Medium - Build A Library With esbuild](https://medium.com/geekculture/build-a-library-with-esbuild-23235712f3c)
+Personal Typescript library for use with integrating WooCommerce with Fortnox.
