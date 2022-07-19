@@ -1,3 +1,4 @@
+import CultureInfo from "./CultureInfo";
 import SalesAccounts from "./data/SalesAccounts";
 import VatAccounts from "./data/VATAccounts";
 import LineItems from "./LineItems";
@@ -67,6 +68,10 @@ abstract class Accounts {
       if (!account)
         throw new Error(`Missing Sales Account for country: ${countryIso}`);
       return account;
+    }
+
+    if (!CultureInfo.isInsideEU(countryIso)) {
+      return this.sales.get("NON_EU") as Account;
     }
 
     if (!paymentMethod) {

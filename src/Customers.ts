@@ -1,5 +1,6 @@
 import CultureInfo from "./CultureInfo";
-import type { Customer, CustomerVatTypes, Invoice } from "./types";
+import type { Customer, CustomerVatTypes, WcOrder } from "./types";
+import WcOrders from "./WcOrders";
 
 abstract class Customers {
   public static getVatType(countryNameOrIso: string): CustomerVatTypes {
@@ -14,47 +15,16 @@ abstract class Customers {
     return "EXPORT";
   }
 
-  public static tryCreateCustomer(invoice: Invoice): Customer {
-    const {
-      Address1,
-      Address2,
-      City,
-      ZipCode,
-      Country,
-
-      DeliveryName,
-      DeliveryAddress1,
-      DeliveryAddress2,
-      DeliveryCity,
-      DeliveryZipCode,
-      DeliveryCountry,
-    } = invoice;
-
-    const CountryCode = CultureInfo.tryGetCountryIso(Country);
-    const DeliveryCountryCode =
-      Country === DeliveryCountry
-        ? CountryCode
-        : CultureInfo.tryGetCountryIso(DeliveryCountry);
+  public static tryCreateCustomer(order: WcOrder): Customer {
+    const addresses = WcOrders.tryGetCustomerAddresses(order);
 
     return {
-      Name: invoice.CustomerName,
+      Name: WcOrders.tryGetCustomerName(order),
       Type: "PRIVATE",
-      Email: invoice.EmailInformation?.EmailAddressTo,
-      CountryCode,
+      Email: WcOrders.tryGetCustomerEmail(order),
 
-      VATType: Customers.getVatType(DeliveryCountryCode),
-
-      Address1,
-      Address2,
-      City,
-      ZipCode,
-
-      DeliveryName,
-      DeliveryAddress1,
-      DeliveryAddress2,
-      DeliveryCity,
-      DeliveryZipCode,
-      DeliveryCountryCode,
+      VATType: Customers.getVatType(addresses.DeliveryCountryCode),
+      ...addresses,
     };
   }
 }

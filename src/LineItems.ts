@@ -3,7 +3,9 @@ import { TaxClass } from "./types";
 
 abstract class WcOrderLineItems {
   public static getTotalWithTax(item: WcOrderLineItem): number {
-    return item.price + parseFloat(item.total_tax);
+    // return item.price + parseFloat(item.total_tax);
+
+    return parseFloat(item.total) + parseFloat(item.total_tax);
   }
 
   public static getAccurateTaxTotal(item: WcOrderLineItem): number {
@@ -38,7 +40,7 @@ abstract class WcOrderLineItems {
         "Tax Class of Item in Orders are only expected to have either 'normal-rate' or 'reduced-rate' if cost of item is non-zero."
       );
     }
-    return item.tax_class !== "normal-rate";
+    return item.tax_class === "reduced-rate";
 
     if (item.tax_class === TaxClass.Empty)
       throw new Error(

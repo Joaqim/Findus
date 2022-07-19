@@ -21,7 +21,7 @@ export type InvoiceType =
 export type PaymentWay = "CASH" | "CARD" | "AG";
 
 export interface InvoiceRow {
-  AccountNumber: number;
+  AccountNumber?: number;
   ArticleNumber: string;
   ContributionPercent?: number;
   ContributionValue?: number;
@@ -54,6 +54,7 @@ export interface EmailInformation {
 export default interface Invoice {
   Url?: string;
   UrlTaxReductionList?: string;
+  AccountingMethod?: "ACCRUAL" | "CASH";
   Address1?: string;
   Address2?: string;
   AdministrationFee?: number;
@@ -84,7 +85,7 @@ export default interface Invoice {
   DeliveryName?: string;
   DeliveryZipCode?: string;
   DocumentNumber?: string;
-  DueDate?: Date;
+  DueDate?: string;
   EdiInformation?: EDIInformation;
   EmailInformation?: EmailInformation;
   EuQuarterlyReport?: boolean;
@@ -94,7 +95,7 @@ export default interface Invoice {
   FreightVAT?: number;
   Gross?: number;
   HouseWork?: boolean;
-  InvoiceDate?: Date;
+  InvoiceDate?: string;
   InvoicePeriodEnd?: string;
   InvoicePeriodStart?: string;
   InvoiceReference?: string;
@@ -111,7 +112,7 @@ export default interface Invoice {
   OrderReference?: string;
   OrganisationNumber?: string;
   OurReference?: string;
-  PaymentWay: PaymentWay;
+  PaymentWay?: PaymentWay;
   Phone1?: string;
   Phone2?: string;
   PriceList?: string;

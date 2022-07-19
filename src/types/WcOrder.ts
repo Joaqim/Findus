@@ -44,7 +44,7 @@ export interface RefundLineItem {
   meta_data: ShippingLineMetaData[];
   sku: string;
   price: number;
-  parent_name: null;
+  parent_name?: null | string;
 }
 
 export interface ShippingLineMetaData {
@@ -201,7 +201,7 @@ export interface WcOrderLineItem {
   meta_data: PurpleMetaData[];
   sku: string;
   price: number;
-  parent_name?: null;
+  parent_name?: null | string;
   bundled_by?: number | string;
   bundled_item_title?: string;
   bundled_items?: number[];

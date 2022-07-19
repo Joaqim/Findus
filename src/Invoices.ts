@@ -1,6 +1,8 @@
 /* eslint-disable class-methods-use-this */
+import type { RefundElement } from "wooconvert";
 import type { Rate } from "./Accounts";
 import Accounts from "./Accounts";
+import Articles from "./Articles";
 import CultureInfo from "./CultureInfo";
 import LineItems from "./LineItems";
 import type { Invoice, InvoiceRow, Refund, WcOrder } from "./types";
@@ -19,44 +21,82 @@ export default abstract class Invoices {
   }
 
   public static tryCreatePartialRefund(
-    order: WcOrder,
     /* invoice: Invoice, */
     creditInvoice: Partial<Invoice>,
-    refund: Refund
+    refunds: Refund[] | RefundElement[]
   ): Partial<Invoice> {
-    // TODO: this shouldn't be caught here - the credit invoice is
-    // expected to be completely new.
     if (
       creditInvoice.Credit === false ||
-      (creditInvoice.InvoiceRows && creditInvoice.InvoiceRows?.length > 0)
+      !creditInvoice.InvoiceRows ||
+      !(creditInvoice.InvoiceRows?.length >= 0)
     ) {
       throw new Error("Credit Invoice for Partial refund is invalid.");
     }
 
+    const creditRows = creditInvoice.InvoiceRows as InvoiceRow[];
     creditInvoice.InvoiceRows = [];
 
-    // const refundAmount = parseFloat(refund.amount);
+    for (const refund of refunds) {
+      const simpleRefund = !Object.prototype.hasOwnProperty.call(
+        refund,
+        "amount"
+      );
 
-    /*
-    if (!refund.line_items && refundAmount > 0) {
-      //const taxLabels = WcOrders.tryGetTaxRateLabels(order.tax_lines);
-      // const rate = taxLabels.reduced ?? taxLabels.standard;
-      //creditInvoice.InvoiceRows.push({ });
-    }
-    */
+      let expectedAmount = 0;
+      let amount = 0;
 
-    for (const item of refund.line_items) {
-      const price = LineItems.getTotalWithTax(item);
+      if (simpleRefund) {
+        expectedAmount = parseFloat((refund as RefundElement).total);
+      } else {
+        expectedAmount = parseFloat((refund as Refund).amount);
+      }
 
-      if (price > 0) {
-        const account = Accounts.tryGetSalesRateForItem(order, item);
-        creditInvoice.InvoiceRows.push({
-          AccountNumber: account.accountNumber,
-          ArticleNumber: item.sku,
-          VAT: account.vat,
-          DeliveredQuantity: item.quantity,
-          Price: price,
-        });
+      if (refunds.length === 1 && simpleRefund) {
+        if (refund.reason === "Refund Shipping") {
+          for (const refundItem of creditRows) {
+            if (refundItem.ArticleNumber.startsWith("Shipping")) {
+              creditInvoice.InvoiceRows.push(refundItem);
+              amount += refundItem.Price;
+            }
+          }
+        } else if (/discount/i.test(refund.reason)) {
+          // TODO: Which account do we use when we apply discount?
+          creditInvoice.InvoiceRows = [
+            {
+              ArticleNumber: "Discount",
+              Price: expectedAmount,
+              AccountNumber: -1,
+            },
+          ];
+          amount = expectedAmount;
+          // } else if (refund.reason === "Refund") {
+        } else {
+          throw new Error(`Unexpected refund: ${refund.reason}`);
+        }
+      } else {
+        // Only keep invoice rows that match item in refund
+        for (const row of creditRows) {
+          if (row.Price > 0) {
+            for (const refundItem of (refund as Refund).line_items) {
+              const refundPrice = LineItems.getTotalWithTax(refundItem);
+
+              if (
+                refundItem.sku === row.ArticleNumber &&
+                refundPrice === -row.Price
+              ) {
+                creditInvoice.InvoiceRows?.push(row);
+                amount += refundPrice;
+              }
+            }
+          }
+        }
+      }
+
+      // Verify that expected Refund amount match Credit Invoice rows
+      if (-amount !== expectedAmount) {
+        throw new Error(
+          `Invalid Refund amount: -${amount}, expected: ${expectedAmount}`
+        );
       }
     }
 
@@ -90,44 +130,61 @@ export default abstract class Invoices {
 
   private static tryGenerateCashPaymentInvoice(
     order: WcOrder
-  ): Omit<Invoice, "Currency" | "CurrencyRate"> {
-    const orderId = order.id.toString();
+  ): Omit<Invoice, "CurrencyRate" | "InvoiceRows"> {
+    const orderId = order.id as string;
+
+    const paymentMethod = WcOrders.tryGetPaymentMethod(order);
 
     const Country = CultureInfo.tryGetEnglishName(order.billing.country);
     const DeliveryCountry = CultureInfo.tryGetEnglishName(
       order.shipping.country
     );
+    let orderPrefix: string | undefined;
 
-    const orderPrefix = order.meta_data.find(
-      (meta) => meta.key === "storefront_prefix"
-    )?.value;
+    if (typeof order.id === "string" && !order.id.includes("-")) {
+      orderPrefix = order.meta_data.find(
+        (meta) => meta.key === "storefront_prefix"
+      )?.value;
+    }
 
+    const invoiceDate = new Date(order.date_paid).toLocaleDateString("sv-SE");
+
+    // TODO: Make PayPal branching better
     return {
-      InvoiceType: "CASHINVOICE",
-      PaymentWay: "CARD",
+      InvoiceDate: invoiceDate,
+      DueDate: invoiceDate,
+      InvoiceType: paymentMethod === "PayPal" ? "CASHINVOICE" : "INVOICE",
+      PaymentWay: paymentMethod === "PayPal" ? "CASH" : undefined,
+
+      TermsOfPayment: "0",
+
+      /* AccountingMethod: "CASH", */
+
+      Currency: WcOrders.tryGetCurrency(order),
+
       Country,
       DeliveryCountry,
 
       VATIncluded: true,
+
       YourOrderNumber: orderPrefix ? `${orderPrefix}-${orderId}` : orderId,
 
-      OurReference: "Findus",
-      InvoiceRows: [],
+      // YourReference: "findus",
 
       // Customer
-      CustomerName: WcOrders.tryGetCustomerName(order),
+      /* CustomerName: WcOrders.tryGetCustomerName(order),
       DeliveryName: WcOrders.tryGetDeliveryName(order),
       EmailInformation: {
         EmailAddressTo: order.billing.email,
       },
 
-      ...WcOrders.tryGetAddresses(order),
+      ...WcOrders.tryGetAddresses(order), */
     };
   }
 
   private static generateInvoiceRows(
     order: WcOrder,
-    paymentMethod?: string
+    paymentMethod: "Stripe" | "PayPal"
   ): InvoiceRow[] {
     const invoiceRows: InvoiceRow[] = [];
 
@@ -141,7 +198,7 @@ export default abstract class Invoices {
       const { vat, accountNumber } = Accounts.getRate(
         order.billing.country,
         isReduced,
-        paymentMethod ?? WcOrders.tryGetPaymentMethod(order)
+        paymentMethod
       );
 
       if (item.price > 0 && vat > highestRate.vat) {
@@ -152,8 +209,9 @@ export default abstract class Invoices {
 
       invoiceRows.push({
         AccountNumber: accountNumber,
-        VAT: vat,
+        VAT: parseFloat((vat * 100).toString().slice(0, 16)),
         ArticleNumber: item.sku,
+        Description: Articles.sanitizeTextForFortnox(item.name),
         DeliveredQuantity: item.quantity,
         Price: LineItems.getTotalWithTax(item),
       });
@@ -164,8 +222,67 @@ export default abstract class Invoices {
     }
 
     Invoices.tryAddShippingCost(invoiceRows, order, highestRate);
-
+    /*     Invoices.tryAddPaymentFeeCost(
+      invoiceRows,
+      order,
+      currencyRate,
+      paymentMethod
+    );
+ */
     return invoiceRows;
+  }
+
+  private static tryAddPaymentFeeCost(
+    invoiceRows: InvoiceRow[],
+    order: WcOrder,
+    currencyRate: number,
+    paymentMethod: "Stripe" | "PayPal"
+  ): void {
+    let paymentFee: number | undefined;
+    WcOrders.tryVerifyCurrencyRate(order, currencyRate);
+
+    let currency: "SEK" | "USD" | "EUR" | undefined;
+
+    let debit: number | undefined;
+
+    if (paymentMethod === "Stripe") {
+      const stripeCurrency = order.meta_data.find(
+        (data) => data.key === "_stripe_currency"
+      )?.value;
+
+      if (stripeCurrency !== "SEK") {
+        throw new Error(
+          `Unxepected Currency for Stripe Charge: ${stripeCurrency}`
+        );
+      }
+      paymentFee = WcOrders.tryGetPaymentFee(order, paymentMethod);
+      debit = paymentFee / currencyRate;
+    } else {
+      currency = WcOrders.tryGetCurrency(order);
+      paymentFee =
+        WcOrders.tryGetPaymentFee(order, paymentMethod) * currencyRate;
+
+      if (currency === "SEK") {
+        if (currencyRate !== 1) {
+          throw new Error(
+            `Invalid SEK Currency Rate for PayPal Payment Fee: ${currencyRate}`
+          );
+        }
+      } else if (currencyRate === 1) {
+        throw new Error(
+          `Non SEK Currency: ${currency}, for PayPal Payment Fee expected valid Currency rate.`
+        );
+      }
+      debit = paymentFee / currencyRate;
+    }
+
+    invoiceRows.push({
+      AccountNumber: 6570,
+      ArticleNumber: `PaymentFee.${paymentMethod}`,
+      Description: `Payment Fee: ${order.id} via ${paymentMethod}`,
+      DeliveredQuantity: 1,
+      Price: -debit,
+    });
   }
 
   private static tryAddShippingCost(
@@ -179,39 +296,56 @@ export default abstract class Invoices {
       return;
     }
 
-    let shippingTax = WcOrders.getShippingTax(order);
+    const shippingTax = WcOrders.getShippingTax(order);
+    const calculatedVat = Math.abs(shippingTax / shippingCost);
 
+    if (calculatedVat - rate.vat > 1e-3) {
+      const isReduced = calculatedVat < rate.vat;
+      rate = Accounts.getRate(order.billing.country, isReduced);
+
+      if (calculatedVat - rate.vat > 1e-3) {
+        throw new Error(
+          `Shipping Rate Missmatch: ${calculatedVat * 100}% VAT, expected ${
+            rate.vat * 100
+          }% VAT`
+        );
+      }
+    }
+
+    invoiceRows.push({
+      AccountNumber: rate.accountNumber,
+      ArticleNumber: "Shipping.Cost",
+      Description: "Fraktkostnad",
+      DeliveredQuantity: 1,
+      Price: shippingCost,
+      VAT: rate.vat * 100,
+    });
+
+    /*
     if (
-      !CultureInfo.isInsideEU(order.billing.country) /* && shippingTax > 0 */
+      !CultureInfo.isInsideEU(order.billing.country)
     ) {
       shippingTax = 0;
       /*
       throw new Error(
         `Unexpected shipping Tax for Order outside EU. Tax: ${shippingTax}, Country: ${order.billing.country}. Expected '0'`
       );
-      */
     }
-
-    invoiceRows.push({
-      AccountNumber: 5710,
-      ArticleNumber: "Shipping.Cost",
-      // This shouldn't be needed as 5710 has no pre-defined VAT
-      VAT: 0,
-      Price: shippingCost - shippingTax,
-    });
-
     if (shippingTax !== 0) {
       const account = Accounts.tryGetSalesAccountForOrder(order);
       let accountNumber = 0;
+      let vat = 0;
 
       const wooShippingRate = shippingTax / shippingCost;
 
       if (account.reduced?.vat.toFixed(3) === wooShippingRate.toFixed(3)) {
         accountNumber = account.reduced.accountNumber;
+        vat = account.reduced.vat;
       } else if (
         account.standard?.vat.toFixed(3) === wooShippingRate.toFixed(3)
       ) {
-        accountNumber = account.standard?.accountNumber;
+        accountNumber = account.standard.accountNumber;
+        vat = account.standard.vat;
       } else {
         throw new Error(
           `Shipping VAT Account not found. VAT: ${wooShippingRate}, expected either reduced: ${account.reduced?.vat}, or standard: ${account.standard.vat} - ${rate.vat}`
@@ -221,43 +355,37 @@ export default abstract class Invoices {
       invoiceRows.push({
         AccountNumber: accountNumber,
         ArticleNumber: "Shipping.Cost.VAT",
-        VAT: 0,
+        Description: `Fraktkostnad - ${(vat * 100).toFixed(2)}% Moms`,
+        DeliveredQuantity: 1,
         Price: shippingTax,
       });
-    }
+    } */
   }
 
   public static tryCreateInvoice(
     order: WcOrder,
-    currencyRate?: number | undefined
+    currencyRate?: number
+    /* timezoneOffset?: number */
   ): Invoice {
     if (!order.billing.email) {
       throw new Error("Order is missing customer email in 'billing'");
     }
 
+    const paymentMethod = WcOrders.tryGetPaymentMethod(order);
+
     const invoice: Invoice = {
       ...this.tryGenerateCashPaymentInvoice(order),
 
-      InvoiceDate: new Date(order.date_paid),
-
-      Currency: order.currency.toUpperCase(),
+      // InvoiceDate: formatDate(order.date_paid, timezoneOffset),
+      // InvoiceDate: new Date(order.date_paid).toISOString(),
+      InvoiceDate: WcOrders.getPaymentDate(order),
 
       CurrencyRate: WcOrders.tryVerifyCurrencyRate(order, currencyRate),
 
-      OurReference: "findus",
-
-      InvoiceRows: Invoices.generateInvoiceRows(order),
-
-      // Customer
-      CustomerName: WcOrders.tryGetCustomerName(order),
-      DeliveryName: WcOrders.tryGetDeliveryName(order),
-
-      // Billing and Shipping Addresses
-      ...WcOrders.tryGetAddresses(order),
-
-      // Shipping cost
-      Freight: WcOrders.getShippingTotal(order),
+      InvoiceRows: Invoices.generateInvoiceRows(order, paymentMethod),
+      // InvoiceRows: [],
     };
+
     return invoice;
   }
 }

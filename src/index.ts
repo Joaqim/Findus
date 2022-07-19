@@ -14,5 +14,7 @@ export * from "./types";
 export * from "./utils";
 export * from "./Verification";
 export { default as Verification } from "./Verification";
+export * from "./Vouchers";
+export { default as Vouchers } from "./Vouchers";
 export * from "./WcOrders";
 export { default as WcOrders } from "./WcOrders";

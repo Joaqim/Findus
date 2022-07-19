@@ -9,11 +9,15 @@ import type {
   WcOrderMetaData,
   WcOrderTaxLine,
 } from "./types";
+import type { Required } from "./utils";
+import { removeEmojis, sanitizeTextForFortnox } from "./utils";
 
 export interface TaxLabel {
   vat: number;
   label?: string;
 }
+
+// const DECIMAL_PRECISION_CURRENCY_RATE = 14;
 
 abstract class WcOrders {
   public static tryVerifyOrder(order: WcOrder): void {
@@ -24,9 +28,21 @@ abstract class WcOrders {
     }
   }
 
-  public static tryCreatePaymentFeeExpense(order: WcOrder): Expense {
+  public static hasInvoiceReference = (order: WcOrder): boolean =>
+    order.meta_data.findIndex(
+      ({ key }) => key === "_fortnox_invoice_reference"
+    ) !== -1;
+
+  public static getInvoiceReference = (order: WcOrder): string | undefined =>
+    order.meta_data.find(({ key }) => key === "_fortnox_invoice_reference")
+      ?.value;
+
+  public static tryCreatePaymentFeeExpense(
+    order: WcOrder,
+    currencyRate: number
+  ): Expense {
     const paymentMethod = WcOrders.tryGetPaymentMethod(order);
-    const paymentFee = WcOrders.getPaymentFee(order, paymentMethod);
+    const paymentFee = WcOrders.tryGetPaymentFee(order, paymentMethod);
 
     if (
       !paymentFee ||
@@ -45,15 +61,18 @@ abstract class WcOrders {
 
     return {
       Code: expenseCodes[paymentMethod],
-      Text: `Betalningsavgift för Order: '${order.id}' via ${paymentMethod}`,
+      Text: `Betalningsavgift: ${order.id} via ${paymentMethod}`,
       Account: 6570,
+      Debit: paymentFee,
+      Currency: WcOrders.tryGetCurrency(order),
+      CurrencyRate: WcOrders.tryVerifyCurrencyRate(order, currencyRate),
     };
   }
 
-  private static getPaymentFee(
+  public static tryGetPaymentFee(
     order: WcOrder,
     paymentMethod: string
-  ): number | undefined {
+  ): number {
     let paymentFee: number | undefined;
 
     const getMetaData = (
@@ -71,11 +90,16 @@ abstract class WcOrders {
         getMetaData(order.meta_data, "_paypal_transaction_fee")?.value as string
       );
     }
+
+    if (!paymentFee) {
+      throw new Error(`Missing '${paymentMethod}' Payment Fee.`);
+    }
+
     return paymentFee;
   }
 
   public static hasPaymentFee(order: WcOrder, paymentMethod: string): boolean {
-    const paymentFee = WcOrders.getPaymentFee(order, paymentMethod);
+    const paymentFee = WcOrders.tryGetPaymentFee(order, paymentMethod);
     return typeof paymentFee === "number" && paymentFee > 0;
   }
 
@@ -130,6 +154,16 @@ abstract class WcOrders {
 
     const diff = Math.abs(total - parseFloat(order.total));
 
+    // NOTE: Less accurate for Naudrinks orders
+    if (typeof order.id === "string" && order.id.includes("ND")) {
+      if (diff >= 0.01) {
+        throw new Error(
+          `WooCommerce order total does not match calculated total. Difference: ${total}, ${order.total} = ${diff}`
+        );
+      }
+      return total;
+    }
+
     // Should not deviate more than 1-E13 from WooCommerce total cost
     if (diff > 0.000_000_000_000_1) {
       throw new Error(
@@ -141,7 +175,7 @@ abstract class WcOrders {
 
   public static tryVerifyCurrencyRate(
     order: WcOrder,
-    currencyRate: number | undefined
+    currencyRate?: number
   ): number | undefined {
     if (order.currency === "SEK") {
       if (currencyRate && currencyRate !== 1)
@@ -158,6 +192,15 @@ abstract class WcOrders {
     } catch {
       return undefined;
     }
+  }
+
+  public static tryGetCurrency(order: WcOrder): "SEK" | "EUR" | "USD" {
+    if (!/SEK|EUR|USD/.test(order.currency)) {
+      throw new Error(
+        `Unexpected Currency: ${order.currency}, expected: SEK, EUR or USD.`
+      );
+    }
+    return order.currency as "SEK" | "EUR" | "USD";
   }
 
   public static tryGetCurrencyRate(
@@ -213,6 +256,8 @@ abstract class WcOrders {
       );
     }
 
+    if (`${order.currency}-${stripeCurrency}` === "SEK-SEK") return 1;
+
     const total = accurateTotal ?? WcOrders.tryGetAccurateTotal(order);
     const stripeCurrencyRate =
       (parseFloat(stripeFee) + parseFloat(stripeNet)) / total;
@@ -250,6 +295,9 @@ abstract class WcOrders {
     }
     return taxLabel;
   }
+
+  public static getPaymentDate = (order: WcOrder): string =>
+    new Date(order.date_paid).toLocaleDateString("sv-SE");
 
   public static getTaxRate(tax: WcOrderTaxLine): number {
     const taxLabel = tax.label;
@@ -299,6 +347,18 @@ abstract class WcOrders {
     )?.value as string;
   }
 
+  public static getStorefrontUrl(order: WcOrder): string | undefined {
+    return order.meta_data.find(
+      (entry: WcOrderMetaData) => entry.key === "storefront_url"
+    )?.value as string;
+  }
+
+  public static getStorefrontPrefix(order: WcOrder): string | undefined {
+    return order.meta_data.find(
+      (entry: WcOrderMetaData) => entry.key === "storefront_prefix"
+    )?.value as string;
+  }
+
   public static tryGetDocumentLink(
     order: WcOrder,
     storefrontUrl?: string
@@ -325,14 +385,20 @@ abstract class WcOrders {
     }
 
     if (!storefrontUrl) {
-      const url = order.meta_data.find(
-        (entry: WcOrderMetaData) => entry.key === "storefront_url"
-      )?.value;
+      const storeUrl = WcOrders.getStorefrontUrl(order);
 
-      if (!url) {
+      if (!storeUrl) {
         throw new Error(`Could not get 'storefront_url' from order meta_data`);
       }
-      return `${url}/wp-admin/admin-ajax.php?action=generate_wpo_wcpdf&template_type=invoice&order_ids=${order.id}&order_key=${orderKey}`;
+
+      let orderId = order.id;
+
+      // Remove optional storefront_prefix from order ID
+      if (typeof orderId === "string" && orderId.includes("-")) {
+        orderId = orderId.split("-")[1];
+      }
+
+      return `${storeUrl}/wp-admin/admin-ajax.php?action=generate_wpo_wcpdf&template_type=invoice&order_ids=${orderId}&order_key=${orderKey}`;
     }
 
     return `${storefrontUrl}/wp-admin/admin-ajax.php?action=generate_wpo_wcpdf&template_type=invoice&order_ids=${order.id}&order_key=${orderKey}`;
@@ -381,33 +447,65 @@ abstract class WcOrders {
 
   public static tryGetDeliveryName(order: WcOrder): string {
     if (order.shipping.first_name || order.shipping.last_name) {
-      return `${order.shipping.first_name} ${order.shipping.last_name}`.trim();
+      return removeEmojis(
+        `${order.shipping.first_name} ${order.shipping.last_name}`
+      ).trim();
     }
     throw new Error(`Order is missing customer name for shipping`);
   }
 
   public static tryGetBillingName(order: WcOrder): string {
     if (order.billing.first_name || order.billing.last_name) {
-      return `${order.billing.first_name} ${order.billing.last_name}`.trim();
+      return removeEmojis(
+        `${order.billing.first_name} ${order.billing.last_name}`
+      ).trim();
     }
     throw new Error(`Order is missing customer name for billing`);
   }
 
-  public static tryGetAddresses(
-    order: WcOrder
-  ): Omit<Customer, "Country" | "DeliveryCountry"> {
-    return {
-      CountryCode: CultureInfo.tryGetCountryIso(order.billing.country),
-      Address1: order.billing.address_1,
-      Address2: order.billing.address_2,
-      ZipCode: order.billing.postcode,
-      City: order.billing.city,
+  public static tryGetCustomerEmail(order: WcOrder): string {
+    // TODO: Verify email is valid
+    if (order.billing.email) {
+      return order.billing.email;
+    }
+    throw new Error(`Order is missing customer email in billing.`);
+  }
 
-      DeliveryCountryCode: CultureInfo.tryGetCountryIso(order.shipping.country),
-      DeliveryAddress1: order.shipping.address_1,
-      DeliveryAddress2: order.shipping.address_2,
-      DeliveryZipCode: order.shipping.postcode,
-      DeliveryCity: order.shipping.city,
+  public static tryGetCustomerAddresses(
+    order: WcOrder
+  ): Required<Customer, "CountryCode" | "DeliveryCountryCode"> {
+    const CountryCode = CultureInfo.tryGetCountryIso(order.billing.country);
+
+    const DeliveryCountryCode = CultureInfo.tryGetCountryIso(
+      order.shipping.country
+    );
+
+    if (!CountryCode) {
+      throw new Error(
+        `Failed to create customer, failed to determine 'order.billing.country'`
+      );
+    }
+
+    if (!DeliveryCountryCode) {
+      throw new Error(
+        `Failed to create customer, failed to determine 'order.shipping.country'`
+      );
+    }
+
+    return {
+      CountryCode,
+      DeliveryCountryCode,
+
+      Address1: sanitizeTextForFortnox(order.billing.address_1),
+      Address2: sanitizeTextForFortnox(order.billing.address_2),
+      ZipCode: sanitizeTextForFortnox(order.billing.postcode),
+      City: sanitizeTextForFortnox(order.billing.city),
+
+      DeliveryName: sanitizeTextForFortnox(WcOrders.tryGetDeliveryName(order)),
+      DeliveryAddress1: sanitizeTextForFortnox(order.shipping.address_1),
+      DeliveryAddress2: sanitizeTextForFortnox(order.shipping.address_2),
+      DeliveryZipCode: sanitizeTextForFortnox(order.shipping.postcode),
+      DeliveryCity: sanitizeTextForFortnox(order.shipping.city),
     };
   }
 }

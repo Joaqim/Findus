@@ -40,7 +40,7 @@ export default interface InvoiceInit {
   ExternalInvoiceReference2?: string;
   Freight?: number;
   Gross?: number;
-  InvoiceDate: Date;
+  InvoiceDate: string;
   InvoiceReference?: string;
   InvoiceRows: InvoiceRowInit[];
   InvoiceType: InvoiceType;

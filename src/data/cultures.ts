@@ -78,6 +78,8 @@ const cultures = {
 
   DE: "Germany",
 
+  GP: "Guadeloupe",
+
   GR: "Greece",
 
   GL: "Greenland",
@@ -99,11 +101,15 @@ const cultures = {
 
   IE: "Ireland",
 
+  IM: "Isle of Man",
+
   PK: "Pakistan",
 
   IL: "Israel",
 
   IT: "Italy",
+
+  JE: "Jersey",
 
   JM: "Jamaica",
 
@@ -173,6 +179,8 @@ const cultures = {
 
   CN: "China",
 
+  CY: "Cyprus",
+
   PR: "Puerto Rico",
 
   QA: "Qatar",
@@ -199,7 +207,7 @@ const cultures = {
 
   LK: "Sri Lanka",
 
-  SE: "Sweden",
+  SE: "Sverige",
 
   CH: "Switzerland",
 
@@ -211,7 +219,7 @@ const cultures = {
 
   TN: "Tunisia",
 
-  TR: "Turkey",
+  TR: "Turkey", // Türkiye
 
   TM: "Turkmenistan",
 

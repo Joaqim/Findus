@@ -1,7 +1,7 @@
 import type { Article, WcOrder, WcOrderLineItem } from "./types";
 
 abstract class Articles {
-  public static sanitizeDescriptionForFortnox(description: string): string {
+  public static sanitizeTextForFortnox(description: string): string {
     const replacement: Record<string, string> = {
       "–": "-",
       "~": "-",
@@ -10,11 +10,9 @@ abstract class Articles {
       "[": "(",
       "]": ")",
       "^": " ",
+      "|": "-",
     };
-    description.replace(/[[\]^{}~–]/g, (c) => {
-      return replacement[c];
-    });
-    return description;
+    return description.replace(/[[\]^{|}~–]/g, (c) => replacement[c]);
   }
 
   public static createArticles(order: WcOrder): Article[] {
@@ -29,7 +27,7 @@ abstract class Articles {
   private static createArticle(item: WcOrderLineItem): Article {
     return {
       ArticleNumber: item.sku,
-      Description: Articles.sanitizeDescriptionForFortnox(item.name),
+      Description: Articles.sanitizeTextForFortnox(item.name),
       Type: "STOCK",
     } as Article;
   }
