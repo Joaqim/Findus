@@ -3,9 +3,10 @@ import { TaxClass } from "./types";
 
 abstract class WcOrderLineItems {
   public static getTotalWithTax(item: WcOrderLineItem): number {
-    // return item.price + parseFloat(item.total_tax);
-
-    return parseFloat(item.total) + parseFloat(item.total_tax);
+    return (
+      (parseFloat(item.total) + parseFloat(item.total_tax)) /
+      (item.quantity === 0 ? 1 : item.quantity)
+    );
   }
 
   public static getAccurateTaxTotal(item: WcOrderLineItem): number {

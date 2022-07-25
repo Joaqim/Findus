@@ -317,7 +317,7 @@ export default abstract class Invoices {
       ArticleNumber: "Shipping.Cost",
       Description: "Fraktkostnad",
       DeliveredQuantity: 1,
-      Price: shippingCost,
+      Price: shippingCost + shippingTax,
       VAT: rate.vat * 100,
     });
 
