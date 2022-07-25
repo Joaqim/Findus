@@ -121,7 +121,7 @@ const cultures = {
 
   KE: "Kenya",
 
-  KR: "Korea",
+  KR: "Sydkorea", // Note: Fortnox localization, swedish for South Korea
 
   KW: "Kuwait",
 

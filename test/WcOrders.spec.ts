@@ -93,21 +93,12 @@ describe("WcOrders", () => {
     };
 
     const invoice = Invoices.tryCreateInvoice(order);
-    const customer = Customers.tryCreateCustomer(invoice);
+    const customer = Customers.tryCreateCustomer(order);
 
-    expect(customer.Name).to.equal(invoice.CustomerName);
-
-    expect(customer.Email).to.equal(invoice.EmailInformation?.EmailAddressTo);
-
-    // TODO: make utility function to compare matching keys with entries
-    expect(customer.Address1).to.equal(invoice.Address1);
-    expect(customer.Address2).to.equal(invoice.Address2);
     expect(customer.CountryCode).to.equal(
       CultureInfo.tryGetCountryIso(invoice.Country)
     );
 
-    expect(customer.DeliveryAddress1).to.equal(invoice.DeliveryAddress1);
-    expect(customer.DeliveryAddress2).to.equal(invoice.DeliveryAddress2);
     expect(customer.DeliveryCountryCode).to.equal(
       CultureInfo.tryGetCountryIso(invoice.DeliveryCountry)
     );

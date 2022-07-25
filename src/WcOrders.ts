@@ -28,6 +28,13 @@ abstract class WcOrders {
     }
   }
 
+  public static filterMetaDataByKeys(
+    meta_data: WcOrderMetaData[],
+    filtered_keys: string[]
+  ): WcOrderMetaData[] {
+    return meta_data.filter((datum) => filtered_keys.includes(datum.key));
+  }
+
   public static hasInvoiceReference = (order: WcOrder): boolean =>
     order.meta_data.findIndex(
       ({ key }) => key === "_fortnox_invoice_reference"
@@ -155,21 +162,25 @@ abstract class WcOrders {
     const diff = Math.abs(total - parseFloat(order.total));
 
     // NOTE: Less accurate for Naudrinks orders
-    if (typeof order.id === "string" && order.id.includes("ND")) {
-      if (diff >= 0.01) {
+    /* if (typeof order.id === "string" && order.id.includes("ND")) {
+      if (diff >= 0.001) {
         throw new Error(
           `WooCommerce order total does not match calculated total. Difference: ${total}, ${order.total} = ${diff}`
         );
       }
       return total;
-    }
+    } */
 
     // Should not deviate more than 1-E13 from WooCommerce total cost
     if (diff > 0.000_000_000_000_1) {
+      if (diff >= 0.01) {
+        throw new Error("Critical Error!");
+      }
       throw new Error(
-        `WooCommerce order total does not match calculated total. Difference: ${total}, ${order.total} = ${diff}`
+        `WooCommerce order total does not match calculated total. Difference: WooCommerce: ${order.total}, calculated: ${total} = ${diff}`
       );
     }
+
     return total;
   }
 
@@ -238,7 +249,7 @@ abstract class WcOrders {
       );
     }
 
-    if (!stripeNet) {
+    if (!stripeNet || parseFloat(stripeNet) < 0) {
       throw new Error(
         `Unexpected: Order 'meta_data' of key '_stripe_net' has value '${stripeNet}' `
       );
@@ -261,6 +272,13 @@ abstract class WcOrders {
     const total = accurateTotal ?? WcOrders.tryGetAccurateTotal(order);
     const stripeCurrencyRate =
       (parseFloat(stripeFee) + parseFloat(stripeNet)) / total;
+
+    if (stripeCurrencyRate <= 0.5) {
+      throw new Error(
+        `Invalid calculated currency rate for Stripe payment: ${stripeCurrencyRate}`
+      );
+    }
+
     return stripeCurrencyRate;
   }
 
