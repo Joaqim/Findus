@@ -2714,9 +2714,9 @@ which@2.0.2, which@^2.0.1:
   dependencies:
     isexe "^2.0.0"
 
-"wooconvert@github:joaqim/WooConvert":
+wooconvert@Joaqim/wooconvert:
   version "1.0.0"
-  resolved "git+ssh://git@github.com/joaqim/WooConvert.git#1574da248886cb9fca11249b00be451560845035"
+  resolved "https://codeload.github.com/Joaqim/wooconvert/tar.gz/1574da248886cb9fca11249b00be451560845035"
   dependencies:
     typescript "^4.7.4"
 
