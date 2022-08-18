@@ -226,6 +226,19 @@ abstract class WcOrders {
       );
     }
 
+    if (
+      order.meta_data.some((d) => d.key === "_stripe_refund_id") ||
+      (order.refunds.length > 0 &&
+        order.refunds.reduce(
+          (total, current) => total + parseFloat(current.total ?? "0"),
+          0
+        ) !== 0)
+    ) {
+      throw new Error(
+        "Cannot deduce Stripe Currency Rate if Order is partially refunded."
+      );
+    }
+
     const stripeCharge = order.meta_data.find(
       (d) => d.key === "_stripe_charge_captured"
     )?.value as string;
