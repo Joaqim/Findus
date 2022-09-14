@@ -143,6 +143,7 @@ abstract class WcOrders {
     }
 
     const { created_via } = order;
+
     if (/admin|checkout/i.test(created_via)) {
       throw new Error(`Order was created manually by '${created_via}'.`);
     }
@@ -155,13 +156,16 @@ abstract class WcOrders {
   public static hasPaymentMethod(order: WcOrder): boolean {
     try {
       WcOrders.tryGetPaymentMethod(order);
-    } catch(error) {
+    } catch {
       return false;
     }
     return true;
   }
 
-  public static tryGetAccurateTotal(order: WcOrder, epsilon = 0.000_000_000_000_1): number {
+  public static tryGetAccurateTotal(
+    order: WcOrder,
+    epsilon = 0.000_000_000_000_1
+  ): number {
     let total = 0;
     order.line_items.forEach((item) => {
       total += item.price * item.quantity + LineItems.getAccurateTaxTotal(item);
@@ -206,26 +210,32 @@ abstract class WcOrders {
     order: WcOrder,
     currencyRate: number
   ): number | undefined {
-    const {currency} = order;
+    const { currency } = order;
 
-    if(!["EUR", "USD", "SEK"].includes(currency)) {
-      throw new Error(`Unexpected currency: '${currency}', expected: EUR, USD or SEK.`)
+    if (!["EUR", "USD", "SEK"].includes(currency)) {
+      throw new Error(
+        `Unexpected currency: '${currency}', expected: EUR, USD or SEK.`
+      );
     }
 
-    if (
-      currency === "SEK" && currencyRate === 1)
-      {
+    if (currency === "SEK" && currencyRate === 1) {
       return currencyRate;
-    } 
+    }
+
     // NOTE: Lazy currency rate check for USD and EUR.
     // Exchange rate is currently _atleast_ between 9 - 11 SEK, let's add 0.5 margin of error.
-    else if( ["EUR","USD"].includes(currency) && (currencyRate > 8.5 && currencyRate < 11.5)) {
+
+    if (
+      ["EUR", "USD"].includes(currency) &&
+      currencyRate > 8.5 &&
+      currencyRate < 11.5
+    ) {
       return currencyRate;
     }
 
     throw new Error(
-        `Unexpected Currency Rate for '${currency}': ${currencyRate}`
-      );
+      `Unexpected Currency Rate for '${currency}': ${currencyRate}`
+    );
   }
 
   public static tryGetCurrency(order: WcOrder): "SEK" | "EUR" | "USD" {

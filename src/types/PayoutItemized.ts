@@ -10,6 +10,5 @@ export default interface PayoutItemized {
   exchange_rate: number | null;
   automatic_payout_id: string;
   order_id: string;
-  
   payout_date: number;
 }
