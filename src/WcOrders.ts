@@ -4,6 +4,7 @@ import LineItems from "./LineItems";
 import type {
   Customer,
   Expense,
+  PayoutItemized,
   WcOrder,
   WcOrderLineItem,
   WcOrderMetaData,
@@ -23,7 +24,7 @@ abstract class WcOrders {
   public static tryVerifyOrder(order: WcOrder): void {
     if (!order.prices_include_tax) {
       throw new Error(
-        `Unexpected: 'prices_include_tax' is ${false}, expected: true`
+        `Unexpecte: 'prices_include_tax' is ${false}, expected: true`
       );
     }
   }
@@ -141,16 +142,26 @@ abstract class WcOrders {
       return "PayPal";
     }
 
-    if (order.created_via === "admin") {
-      throw new Error("Order was created manually by 'admin'.");
+    const { created_via } = order;
+    if (/admin|checkout/i.test(created_via)) {
+      throw new Error(`Order was created manually by '${created_via}'.`);
     }
 
     throw new Error(
-      `Unexpected Payment Method: '${payment_method}', '${order.payment_method_title}. Order was created by '${order.created_via}'`
+      `Unexpected Payment Method: '${payment_method}', '${order.payment_method_title}. Order was created by '${created_via}'`
     );
   }
 
-  public static tryGetAccurateTotal(order: WcOrder): number {
+  public static hasPaymentMethod(order: WcOrder): boolean {
+    try {
+      WcOrders.tryGetPaymentMethod(order);
+    } catch(error) {
+      return false;
+    }
+    return true;
+  }
+
+  public static tryGetAccurateTotal(order: WcOrder, epsilon = 0.000_000_000_000_1): number {
     let total = 0;
     order.line_items.forEach((item) => {
       total += item.price * item.quantity + LineItems.getAccurateTaxTotal(item);
@@ -161,18 +172,7 @@ abstract class WcOrders {
 
     const diff = Math.abs(total - parseFloat(order.total));
 
-    // NOTE: Less accurate for Naudrinks orders
-    /* if (typeof order.id === "string" && order.id.includes("ND")) {
-      if (diff >= 0.001) {
-        throw new Error(
-          `WooCommerce order total does not match calculated total. Difference: ${total}, ${order.total} = ${diff}`
-        );
-      }
-      return total;
-    } */
-
-    // Should not deviate more than 1-E13 from WooCommerce total cost
-    if (diff > 0.000_000_000_000_1) {
+    if (diff > epsilon) {
       if (diff >= 0.01) {
         throw new Error("Critical Error!");
       }
@@ -184,25 +184,48 @@ abstract class WcOrders {
     return total;
   }
 
+  public static tryVerifyStripePayout(
+    order: WcOrder,
+    payout: PayoutItemized
+  ): void {
+    const currencyRate = this.getCurrencyRateFromStripeMetaData(
+      payout.fee,
+      payout.net,
+      this.tryGetAccurateTotal(order)
+    );
+
+    // TODO: Temporary catch to assert that this is more accurate than previous method.
+    if (currencyRate !== payout.exchange_rate) {
+      throw new Error(
+        `Calculated Currency Rate: ${currencyRate} does not match Stripe 'exchange_rate' : ${payout.exchange_rate}`
+      );
+    }
+  }
+
   public static tryVerifyCurrencyRate(
     order: WcOrder,
-    currencyRate?: number
+    currencyRate: number
   ): number | undefined {
-    if (order.currency === "SEK") {
-      if (currencyRate && currencyRate !== 1)
-        throw new Error(`Unexpected Currency Rate for SEK: ${currencyRate}`);
-      return 1;
+    const {currency} = order;
+
+    if(!["EUR", "USD", "SEK"].includes(currency)) {
+      throw new Error(`Unexpected currency: '${currency}', expected: EUR, USD or SEK.`)
     }
 
-    if (currencyRate) {
+    if (
+      currency === "SEK" && currencyRate === 1)
+      {
+      return currencyRate;
+    } 
+    // NOTE: Lazy currency rate check for USD and EUR.
+    // Exchange rate is currently _atleast_ between 9 - 11 SEK, let's add 0.5 margin of error.
+    else if( ["EUR","USD"].includes(currency) && (currencyRate > 8.5 && currencyRate < 11.5)) {
       return currencyRate;
     }
 
-    try {
-      return WcOrders.tryGetCurrencyRate(order);
-    } catch {
-      return undefined;
-    }
+    throw new Error(
+        `Unexpected Currency Rate for '${currency}': ${currencyRate}`
+      );
   }
 
   public static tryGetCurrency(order: WcOrder): "SEK" | "EUR" | "USD" {
@@ -214,6 +237,15 @@ abstract class WcOrders {
     return order.currency as "SEK" | "EUR" | "USD";
   }
 
+  private static getCurrencyRateFromStripeMetaData(
+    stripeFee: string,
+    stripeNet: string,
+    total: number
+  ): number {
+    return (parseFloat(stripeFee) + parseFloat(stripeNet)) / total;
+  }
+
+  // NOTE: Deprecated
   public static tryGetCurrencyRate(
     order: WcOrder,
     accurateTotal?: number
@@ -283,8 +315,11 @@ abstract class WcOrders {
     if (`${order.currency}-${stripeCurrency}` === "SEK-SEK") return 1;
 
     const total = accurateTotal ?? WcOrders.tryGetAccurateTotal(order);
-    const stripeCurrencyRate =
-      (parseFloat(stripeFee) + parseFloat(stripeNet)) / total;
+    const stripeCurrencyRate = this.getCurrencyRateFromStripeMetaData(
+      stripeFee,
+      stripeNet,
+      total
+    );
 
     if (stripeCurrencyRate <= 0.5) {
       throw new Error(

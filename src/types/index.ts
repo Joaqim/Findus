@@ -10,6 +10,8 @@ export * from "./Invoice";
 export type { default as Invoice } from "./Invoice";
 export * from "./InvoiceInit";
 export type { default as InvoiceInit } from "./InvoiceInit";
+export type { default as InvoicePayment } from "./InvoicePayment";
+export type { default as PayoutItemized } from "./PayoutItemized";
 export * from "./SupplierInvoice";
 export type { default as SupplierInvoice } from "./SupplierInvoice";
 export * from "./Voucher";

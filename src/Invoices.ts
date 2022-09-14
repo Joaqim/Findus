@@ -5,7 +5,14 @@ import Accounts from "./Accounts";
 import Articles from "./Articles";
 import CultureInfo from "./CultureInfo";
 import LineItems from "./LineItems";
-import type { Invoice, InvoiceRow, Refund, WcOrder } from "./types";
+import type {
+  Invoice,
+  InvoicePayment,
+  InvoiceRow,
+  Refund,
+  WcOrder,
+} from "./types";
+import { formatDate } from "./utils";
 import WcOrders from "./WcOrders";
 
 export default abstract class Invoices {
@@ -18,6 +25,47 @@ export default abstract class Invoices {
       throw new Error("Invoice has an existing Credit Invoice");
     }
     return true;
+  }
+
+  public static tryGetInvoiceCurrencyAmount(invoice: Invoice): number {
+    let calculatedTotal = 0;
+    invoice.InvoiceRows.forEach((row) => {
+      calculatedTotal += row.Price * (row.DeliveredQuantity ?? 1);
+    });
+
+    if (invoice.Total && invoice.Total !== calculatedTotal) {
+      throw new Error(
+        `Calculated Total: ${calculatedTotal} of Invoice does not match Fortnox assigned total: ${invoice.Total}`
+      );
+    }
+
+    if (calculatedTotal === 0) {
+      throw new Error(`Unexpected zero value total for Invoice`);
+    }
+    return calculatedTotal;
+  }
+
+  public static tryCreateInvoicePayment(
+    invoice: Invoice,
+    currencyRate: number | undefined | null,
+    paymentDate: Date
+  ): InvoicePayment {
+    const currencyAmount = Invoices.tryGetInvoiceCurrencyAmount(invoice);
+    const CurrencyRate = currencyRate ?? invoice.CurrencyRate;
+
+    if (!CurrencyRate) {
+      throw new TypeError(`Missing Currency Rate for Invoice Payment.`);
+    }
+
+    const invoicePayment: InvoicePayment = {
+      InvoiceNumber: invoice.DocumentNumber,
+      Amount: currencyAmount * CurrencyRate,
+      AmountCurrency: currencyAmount,
+      PaymentDate: formatDate(paymentDate),
+      CurrencyRate,
+    };
+
+    return invoicePayment;
   }
 
   public static tryCreatePartialRefund(
@@ -364,7 +412,7 @@ export default abstract class Invoices {
 
   public static tryCreateInvoice(
     order: WcOrder,
-    currencyRate?: number
+    currencyRate: number
     /* timezoneOffset?: number */
   ): Invoice {
     if (!order.billing.email) {

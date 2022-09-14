@@ -92,7 +92,7 @@ describe("WcOrders", () => {
       ...WooConvert.toWcOrder(JSON.stringify(wooOrders.data[0])),
     };
 
-    const invoice = Invoices.tryCreateInvoice(order);
+    const invoice = Invoices.tryCreateInvoice(order, 10.234);
     const customer = Customers.tryCreateCustomer(order);
 
     expect(customer.CountryCode).to.equal(
