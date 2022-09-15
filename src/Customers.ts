@@ -3,7 +3,7 @@ import type { Customer, CustomerVatTypes, WcOrder } from "./types";
 import WcOrders from "./WcOrders";
 
 abstract class Customers {
-  public static getVatType(countryNameOrIso: string): CustomerVatTypes {
+  public static getCustomerVatType(countryNameOrIso: string): CustomerVatTypes {
     const countryIso = CultureInfo.tryGetCountryIso(countryNameOrIso);
 
     if (CultureInfo.isInsideEU(countryIso)) {
@@ -23,7 +23,7 @@ abstract class Customers {
       Type: "PRIVATE",
       Email: WcOrders.tryGetCustomerEmail(order),
 
-      VATType: Customers.getVatType(addresses.DeliveryCountryCode),
+      VATType: Customers.getCustomerVatType(addresses.DeliveryCountryCode),
       ...addresses,
     };
   }
