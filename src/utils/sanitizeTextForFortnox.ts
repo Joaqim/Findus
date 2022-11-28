@@ -8,8 +8,13 @@ const sanitizeTextForFortnox = (description: string): string => {
     "]": ")",
     "^": " ",
     "|": "-",
+    "·": "-",
   };
-  return description.replace(/[[\]^{|}~–]/g, (c) => replacement[c]);
+  // U-0650 - Arabic Kasra: https://unicodeplus.com/U+0650
+  // TODO: '·' can't seem to get replaced with a '-', removing it completely for now.
+  return description
+    .replace(/u650|·/, "")
+    .replace(/[[\]^{|}~–]/g, (c) => replacement[c]);
 };
 
 export default sanitizeTextForFortnox;
