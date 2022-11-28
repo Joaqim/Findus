@@ -24,7 +24,13 @@ import wooOrdersPartialRefund from "./orders.partial_refunds.json";
 const mockCurrencyRate = (order: WcOrder): number => {
   try {
     const paymentMethod = WcOrders.tryGetPaymentMethod(order);
-    if (paymentMethod === "Stripe") return WcOrders.tryGetCurrencyRate(order);
+    if (paymentMethod === "Stripe") {
+      return WcOrders.tryGetCurrencyRate(
+        order,
+        WcOrders.getMetaDataValueByKey(order, "_stripe_fee") as string,
+        WcOrders.getMetaDataValueByKey(order, "_stripe_net") as string
+      );
+    }
   } catch {
   } finally {
     return order.currency === "SEK" ? 1 : 10.234;
@@ -40,10 +46,11 @@ describe("Can process Orders from Gamerbulk", () => {
     const paymentMethod = WcOrders.tryGetPaymentMethod(order);
     const paymentFee = WcOrders.tryGetPaymentFee(order, paymentMethod);
 
+
     const voucher = Vouchers.tryCreateVoucherForPaymentFee(
       order,
       currencyRate,
-      paymentMethod
+      paymentMethod as "Stripe" | "PayPal"
     );
 
     console.log(voucher);
@@ -53,7 +60,7 @@ describe("Can process Orders from Gamerbulk", () => {
       VoucherSeries: "B",
       VoucherRows: [
         {
-          Account: 1580,
+          Account: 1930,
           Debit: 0,
           Credit: 3,
         },
@@ -173,6 +180,7 @@ describe("Can process Orders from Gamerbulk", () => {
           ).to.throw("Order was created manually by 'admin'.");
         } else if (orderObject.id === "GB-31867") {
           const invoice = Invoices.tryCreateInvoice(orderObject, currencyRate);
+          console.log(invoice)
           expect(invoice).to.deep.equal({
             InvoiceDate: "2022-06-22",
             DueDate: "2022-06-22",
@@ -209,7 +217,7 @@ describe("Can process Orders from Gamerbulk", () => {
                 DeliveredQuantity: 1,
                 Price: 19.9875,
                 VAT: 25,
-              },
+              }
             ],
           });
         } else {
@@ -372,6 +380,7 @@ describe("Can process Orders from Gamerbulk", () => {
       Credit: true,
       DocumentNumber: "123",
       InvoiceRows: invoice.InvoiceRows,
+      DeliveryCountry: "Denmark"
     };
 
     const mockRefund: Partial<Refund>[] = [

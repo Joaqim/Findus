@@ -37,7 +37,7 @@ export default abstract class Vouchers {
       VoucherSeries: "B",
       VoucherRows: [
         {
-          Account: paymentMethod === "PayPal" ? 1940 : 1580,
+          Account: paymentMethod === "PayPal" ? 1940 : 1930,
           Debit: 0,
           Credit: debit,
         },

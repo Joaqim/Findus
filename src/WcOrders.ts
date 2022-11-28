@@ -1,6 +1,7 @@
+import type { Refund, RefundElement } from "wooconvert";
 import type { Rate } from "./Accounts";
 import CultureInfo from "./CultureInfo";
-import LineItems from "./LineItems";
+import * as LineItems from "./LineItems";
 import type {
   Customer,
   Expense,
@@ -10,8 +11,10 @@ import type {
   WcOrderMetaData,
   WcOrderTaxLine,
 } from "./types";
+import type { PaymentMethod } from "./types/PaymentMethod";
 import type { Required } from "./utils";
 import { removeEmojis, sanitizeTextForFortnox } from "./utils";
+import { toNumber } from "./utils/toNumber";
 
 export interface TaxLabel {
   vat: number;
@@ -24,17 +27,25 @@ abstract class WcOrders {
   public static tryVerifyOrder(order: WcOrder): void {
     if (!order.prices_include_tax) {
       throw new Error(
-        `Unexpecte: 'prices_include_tax' is ${false}, expected: true`
+        `Unexpected: 'prices_include_tax' is ${false}, expected: true`
       );
     }
   }
 
-  public static filterMetaDataByKeys(
+  public static getFilteredMetaDataByKeys(
     meta_data: WcOrderMetaData[],
     filtered_keys: string[]
   ): WcOrderMetaData[] {
     return meta_data.filter((datum) => filtered_keys.includes(datum.key));
   }
+
+  public static getMetaDataValueByKey = (
+    object: WcOrder | WcOrderMetaData[],
+    matchKey: string
+  ): string | undefined =>
+    (Array.isArray(object) ? object : object.meta_data).find(
+      ({ key }) => key === matchKey
+    )?.value;
 
   public static hasInvoiceReference = (order: WcOrder): boolean =>
     order.meta_data.findIndex(
@@ -42,14 +53,16 @@ abstract class WcOrders {
     ) !== -1;
 
   public static getInvoiceReference = (order: WcOrder): string | undefined =>
-    order.meta_data.find(({ key }) => key === "_fortnox_invoice_reference")
-      ?.value;
+    WcOrders.getMetaDataValueByKey(
+      order.meta_data,
+      "_fortnox_invoice_reference"
+    );
 
   public static tryCreatePaymentFeeExpense(
     order: WcOrder,
-    currencyRate: number
+    currencyRate: number,
+    paymentMethod: "Stripe" | "PayPal"
   ): Expense {
-    const paymentMethod = WcOrders.tryGetPaymentMethod(order);
     const paymentFee = WcOrders.tryGetPaymentFee(order, paymentMethod);
 
     if (
@@ -77,6 +90,35 @@ abstract class WcOrders {
     };
   }
 
+  public static hasGiftCardsRedeem(order: WcOrder): boolean {
+    const { gift_cards } = order;
+    return Array.isArray(gift_cards) && gift_cards?.length > 0;
+  }
+
+  public static tryGetGiftCardsPurchases(order: WcOrder): {
+    hasGiftCards: boolean;
+    amountCurrency: number;
+    containsOnlyGiftCards: boolean;
+    giftCards: WcOrderLineItem[];
+  } {
+    const giftCards = LineItems.default.getGiftCards(order.line_items);
+    const hasGiftCards = giftCards.length > 0;
+
+    let amountCurrency = 0;
+
+    if (hasGiftCards) {
+      amountCurrency = WcOrders.tryGetAccurateTotal(order);
+    }
+
+    return {
+      hasGiftCards,
+      amountCurrency,
+      containsOnlyGiftCards:
+        hasGiftCards && amountCurrency === parseFloat(order.total),
+      giftCards,
+    };
+  }
+
   public static tryGetPaymentFee(
     order: WcOrder,
     paymentMethod: string
@@ -94,9 +136,21 @@ abstract class WcOrders {
         getMetaData(order.meta_data, "_stripe_fee")?.value as string
       );
     } else if (paymentMethod === "PayPal") {
-      paymentFee = parseFloat(
-        getMetaData(order.meta_data, "_paypal_transaction_fee")?.value as string
-      );
+      if (order.payment_method.includes("ppcp-gateway")) {
+        paymentFee = parseFloat(
+          (
+            getMetaData(order.meta_data, "_ppcp_paypal_fees")?.value as Record<
+              "paypal_fee",
+              Record<"value", string>
+            >
+          ).paypal_fee.value
+        );
+      } else {
+        paymentFee = parseFloat(
+          getMetaData(order.meta_data, "_paypal_transaction_fee")
+            ?.value as string
+        );
+      }
     }
 
     if (!paymentFee) {
@@ -123,14 +177,13 @@ abstract class WcOrders {
       : order.shipping_tax;
   }
 
-  public static tryGetPaymentMethod(order: WcOrder): "Stripe" | "PayPal" {
-    const { payment_method } = order;
+  public static tryGetPaymentMethod(order: WcOrder): PaymentMethod {
+    const { payment_method, payment_method_title } = order;
 
-    /*
-    if (!paymentMethod || paymentMethod === "") {
-      throw new Error("Beställningen behöver bokföras manuellt.");
+    if (/^Stripe$|^PayPal$/.test(payment_method_title)) {
+      return payment_method_title as "Stripe" | "PayPal";
     }
-    */
+
     // NOTE: Matches stripe & stripe_{bancontant,ideal,sofort}, but not *_stripe
 
     if (/^stripe\S*/i.test(payment_method)) {
@@ -142,7 +195,11 @@ abstract class WcOrders {
       return "PayPal";
     }
 
-    const { created_via } = order;
+    const { created_via, total, gift_cards } = order;
+
+    if (parseFloat(total) === 0 && gift_cards && gift_cards.length > 0) {
+      return "GiftCard";
+    }
 
     if (/admin|checkout/i.test(created_via)) {
       throw new Error(`Order was created manually by '${created_via}'.`);
@@ -167,8 +224,13 @@ abstract class WcOrders {
     epsilon = 0.000_000_000_000_1
   ): number {
     let total = 0;
+
+    if (parseFloat(order.total) === 0) return 0;
+
     order.line_items.forEach((item) => {
-      total += item.price * item.quantity + LineItems.getAccurateTaxTotal(item);
+      total +=
+        item.price * item.quantity +
+        LineItems.default.getAccurateTaxTotal(item);
     });
 
     // TODO: Is this correct?
@@ -177,12 +239,13 @@ abstract class WcOrders {
     const diff = Math.abs(total - parseFloat(order.total));
 
     if (diff > epsilon) {
+      const errorMessage = `WooCommerce order ${order.id} total does not match calculated total. Difference: WooCommerce: ${order.total}, calculated: ${total} = ${diff}`;
+
       if (diff >= 0.01) {
-        throw new Error("Critical Error!");
+        throw new Error(errorMessage);
       }
-      throw new Error(
-        `WooCommerce order total does not match calculated total. Difference: WooCommerce: ${order.total}, calculated: ${total} = ${diff}`
-      );
+      // TODO: Throw better non-critical error?
+      // console.log(errorMessage);
     }
 
     return total;
@@ -248,16 +311,53 @@ abstract class WcOrders {
   }
 
   private static getCurrencyRateFromStripeMetaData(
-    stripeFee: string,
-    stripeNet: string,
+    stripeFee: number | string,
+    stripeNet: number | string,
     total: number
   ): number {
-    return (parseFloat(stripeFee) + parseFloat(stripeNet)) / total;
+    return (toNumber(stripeFee) + toNumber(stripeNet)) / total;
   }
 
-  // NOTE: Deprecated
+  // public static hasDifferingCurrencyRate(): boolean {
+  // }
+
+  public static getRefunds(
+    order: WcOrder
+  ): Refund[] | RefundElement[] | undefined {
+    if (!Object.prototype.hasOwnProperty.call(order.refunds, "amount")) {
+      return order.refunds as unknown as Refund[];
+    }
+    return order.refunds.length > 0
+      ? (order.refunds as RefundElement[])
+      : undefined;
+  }
+
+  public static isPartiallyRefunded(order: WcOrder): boolean {
+    return (
+      order.status === "completed" &&
+      (order.meta_data.some((d) => d.key === "_stripe_refund_id") ||
+        (order.refunds.length > 0 &&
+          order.refunds.reduce(
+            (total, current) => total + parseFloat(current.total ?? "0"),
+            0
+          ) !== 0))
+    );
+  }
+
+  /**
+   *
+   * @static
+   * @param {WcOrder} order
+   * @param {(number | string)} [stripeFee]
+   * @param {(number | string)} [stripeNet]
+   * @param {number} [accurateTotal]
+   * @return {*}  {number}
+   * @memberof WcOrders
+   */
   public static tryGetCurrencyRate(
     order: WcOrder,
+    stripeFee: number | string,
+    stripeNet: number | string,
     accurateTotal?: number
   ): number {
     const paymentMethod = WcOrders.tryGetPaymentMethod(order);
@@ -284,10 +384,17 @@ abstract class WcOrders {
     const stripeCharge = order.meta_data.find(
       (d) => d.key === "_stripe_charge_captured"
     )?.value as string;
-    const stripeFee = order.meta_data.find((d) => d.key === "_stripe_fee")
-      ?.value as string;
-    const stripeNet = order.meta_data.find((d) => d.key === "_stripe_net")
-      ?.value as string;
+
+    /* NOTE: Deprecated - WooCommerce '_stripe_fee' and '_stripe_net' does not always correctly
+     * correspond to Stripe's actual values.
+    stripeFee =
+      stripeFee ??
+      (order.meta_data.find((d) => d.key === "_stripe_fee")?.value as string);
+    stripeNet =
+      stripeFee ??
+      (order.meta_data.find((d) => d.key === "_stripe_net")?.value as string);
+    */
+
     const stripeCurrency = order.meta_data.find(
       (d) => d.key === "_stripe_currency"
     )?.value as string;
@@ -298,16 +405,12 @@ abstract class WcOrders {
       );
     }
 
-    if (!stripeFee || parseFloat(stripeFee) <= 0) {
-      throw new Error(
-        `Unexpected: Order 'meta_data' of key '_stripe_fee' has value '${stripeFee}' `
-      );
+    if (!stripeFee || toNumber(stripeFee) <= 0) {
+      throw new Error(`Invalid value of stripeNet: ${stripeFee}`);
     }
 
-    if (!stripeNet || parseFloat(stripeNet) < 0) {
-      throw new Error(
-        `Unexpected: Order 'meta_data' of key '_stripe_net' has value '${stripeNet}' `
-      );
+    if (!stripeNet || toNumber(stripeNet) < 0) {
+      throw new Error(`Invalid value of stripeNet: ${stripeNet}`);
     }
 
     if (!stripeCurrency) {
@@ -318,7 +421,7 @@ abstract class WcOrders {
 
     if (stripeCurrency !== "SEK") {
       throw new Error(
-        `Stripe Payment with currency: ${stripeCurrency} is unexpected`
+        `Stripe Payment with currency: ${stripeCurrency} is unexpected.`
       );
     }
 
@@ -331,9 +434,11 @@ abstract class WcOrders {
       total
     );
 
-    if (stripeCurrencyRate <= 0.5) {
+    try {
+      WcOrders.tryVerifyCurrencyRate(order, stripeCurrencyRate);
+    } catch (error) {
       throw new Error(
-        `Invalid calculated currency rate for Stripe payment: ${stripeCurrencyRate}`
+        `Failed to verify calculated Currency Rate for Stripe payment: ${stripeCurrencyRate}, ${error}`
       );
     }
 
@@ -508,17 +613,25 @@ abstract class WcOrders {
   }
 
   public static tryGetCustomerName(order: WcOrder): string {
+    let customerName: string | undefined;
+
     try {
-      return this.tryGetBillingName(order);
+      customerName = this.tryGetBillingName(order);
     } catch {
       try {
-        return this.tryGetDeliveryName(order);
+        customerName = this.tryGetDeliveryName(order);
       } catch {
         throw new Error(
           `Order is missing customer name for 'billing' and failed to fallback to 'shipping'`
         );
       }
     }
+
+    if (!customerName) {
+      throw new Error(`Missing customer name for order`);
+    }
+
+    return sanitizeTextForFortnox(customerName);
   }
 
   public static tryGetDeliveryName(order: WcOrder): string {
@@ -550,6 +663,22 @@ abstract class WcOrders {
   public static tryGetCustomerAddresses(
     order: WcOrder
   ): Required<Customer, "CountryCode" | "DeliveryCountryCode"> {
+    const sanitizePostCode = (
+      postCode: string | undefined,
+      cityName?: string
+    ): string | undefined => {
+      if (postCode && postCode.length > 10) {
+        if (cityName) {
+          postCode = postCode.replace(cityName, "");
+        }
+
+        if (postCode.length > 10) {
+          return postCode.slice(0, 10);
+        }
+      }
+      return postCode;
+    };
+
     const CountryCode = CultureInfo.tryGetCountryIso(order.billing.country);
 
     const DeliveryCountryCode = CultureInfo.tryGetCountryIso(
@@ -574,13 +703,16 @@ abstract class WcOrders {
 
       Address1: sanitizeTextForFortnox(order.billing.address_1),
       Address2: sanitizeTextForFortnox(order.billing.address_2),
-      ZipCode: sanitizeTextForFortnox(order.billing.postcode),
+      ZipCode: sanitizePostCode(order.billing.postcode, order.shipping.city),
       City: sanitizeTextForFortnox(order.billing.city),
 
       DeliveryName: sanitizeTextForFortnox(WcOrders.tryGetDeliveryName(order)),
       DeliveryAddress1: sanitizeTextForFortnox(order.shipping.address_1),
       DeliveryAddress2: sanitizeTextForFortnox(order.shipping.address_2),
-      DeliveryZipCode: sanitizeTextForFortnox(order.shipping.postcode),
+      DeliveryZipCode: sanitizePostCode(
+        order.shipping.postcode,
+        order.shipping.city
+      ),
       DeliveryCity: sanitizeTextForFortnox(order.shipping.city),
     };
   }

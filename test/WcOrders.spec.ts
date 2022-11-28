@@ -100,7 +100,7 @@ describe("WcOrders", () => {
     );
 
     expect(customer.DeliveryCountryCode).to.equal(
-      CultureInfo.tryGetCountryIso(invoice.DeliveryCountry)
+      CultureInfo.tryGetCountryIso(invoice.DeliveryCountry as string)
     );
   });
 });

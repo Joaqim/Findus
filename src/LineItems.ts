@@ -1,7 +1,7 @@
-import type { Tax, WcOrderLineItem } from "./types";
+import type { RefundLineItem, Tax, WcOrderLineItem } from "./types";
 import { TaxClass } from "./types";
 
-abstract class WcOrderLineItems {
+abstract class LineItems {
   public static getTotalWithTax(item: WcOrderLineItem): number {
     return (
       (parseFloat(item.total) + parseFloat(item.total_tax)) /
@@ -18,6 +18,18 @@ abstract class WcOrderLineItems {
     return result;
   }
 
+  public static getGiftCards(items: WcOrderLineItem[]): WcOrderLineItem[] {
+    return items.filter((item) => LineItems.isGiftCard(item));
+  }
+
+  public static isGiftCard(item: WcOrderLineItem): boolean {
+    return item.sku.includes("GIFTCARD");
+  }
+
+  public static isGiftCardSKU(sku: string): boolean {
+    return sku.includes("GIFTCARD");
+  }
+
   public static tryVerifyRate(
     item: WcOrderLineItem,
     expectedVAT: number
@@ -31,7 +43,9 @@ abstract class WcOrderLineItems {
     }
   }
 
-  public static tryHasReducedRate(item: WcOrderLineItem): boolean {
+  public static tryHasReducedRate(
+    item: WcOrderLineItem | RefundLineItem
+  ): boolean {
     if (
       !/\b(reduced|normal)\b-rate/.test(item.tax_class) &&
       item.price !== 0 &&
@@ -51,4 +65,4 @@ abstract class WcOrderLineItems {
   }
 }
 
-export default WcOrderLineItems;
+export default LineItems;
