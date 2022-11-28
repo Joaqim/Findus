@@ -72,7 +72,7 @@ export default interface Invoice {
   Country: string;
   Credit?: boolean;
   CreditInvoiceReference?: number;
-  Currency: string;
+  Currency: "SEK" | "EUR" | "USD";
   CurrencyRate?: number;
   CurrencyUnit?: number;
   CustomerName?: string;
@@ -80,7 +80,9 @@ export default interface Invoice {
   DeliveryAddress1?: string;
   DeliveryAddress2?: string;
   DeliveryCity?: string;
-  DeliveryCountry: string;
+
+  // NOTE: DeliveryCountry is optional for orders where there is no shipping AND no VAT, i.e. for Gift Card purchases.
+  DeliveryCountry?: string;
   DeliveryDate?: null;
   DeliveryName?: string;
   DeliveryZipCode?: string;
@@ -100,7 +102,7 @@ export default interface Invoice {
   InvoicePeriodStart?: string;
   InvoiceReference?: string;
   InvoiceRows: InvoiceRow[];
-  InvoiceType: InvoiceType;
+  InvoiceType?: InvoiceType;
   Labels?: Label[];
   Language?: string;
   LastRemindDate?: null;

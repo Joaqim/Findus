@@ -4,7 +4,7 @@ export interface InvoiceRowInit {
   AccountNumber: number;
   ArticleNumber: string;
   CostCenter?: null;
-  DeliveredQuantity: string;
+  DeliveredQuantity: number;
   Description?: string;
   Discount?: number;
   DiscountType?: string;

@@ -63,6 +63,12 @@ export enum Key {
   SmartSendShippingMethod = "smart_send_shipping_method",
 }
 
+export interface WcOrderGiftCard {
+  id: Readonly<number>;
+  code: Readonly<string>;
+  amount: Readonly<number>;
+}
+
 export enum TaxClass {
   Empty = "",
   ReducedRate = "reduced-rate",
@@ -133,6 +139,7 @@ export interface WcOrder {
   date_paid_gmt: Date;
   date_completed?: Date;
   date_completed_gmt?: Date;
+  gift_cards?: WcOrderGiftCard[];
   cart_hash: string;
   meta_data: WcOrderMetaData[];
   line_items: WcOrderLineItem[];
