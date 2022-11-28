@@ -37,41 +37,38 @@ export default abstract class StripePayouts {
     stripePayout: PayoutItemized
   ): void {
     try {
+      const { exchange_rate } = stripePayout;
+
       if (
-        parseFloat(order.total) * (stripePayout.exchange_rate ?? 1) !==
-        parseFloat(stripePayout.gross)
+        Math.abs(
+          parseFloat(order.total) * (exchange_rate ?? 1) -
+            parseFloat(stripePayout.gross)
+        ) > 0.1
       ) {
         throw new Error(
-          `Order total '${order.total}' does not match Stripe Payout gross: '${stripePayout.gross}'`
+          `Order total '${
+            parseFloat(order.total) * (exchange_rate ?? 1)
+          }' does not match Stripe Payout gross: '${stripePayout.gross}'`
         );
       }
 
-      if (
-        parseFloat(order.total) * (stripePayout.exchange_rate ?? 1) !==
-        parseFloat(stripePayout.gross)
-      ) {
-        throw new Error(
-          `Order total '${order.total}' does not match Stripe Payout gross: '${stripePayout.gross}'`
-        );
-      }
-
-      const wcStripeFee = order.meta_data.find(
-        ({ key }) => key === "_stripe_fee"
-      )?.value;
-      const wcStripeNet = order.meta_data.find(
-        ({ key }) => key === "_stripe_net"
-      )?.value;
+      const wcStripeFee = parseFloat(
+        order.meta_data.find(({ key }) => key === "_stripe_fee")?.value
+      );
+      const wcStripeNet = parseFloat(
+        order.meta_data.find(({ key }) => key === "_stripe_net")?.value
+      );
       const wcStripeCurrency = order.meta_data.find(
         ({ key }) => key === "_stripe_currency"
       )?.value;
 
-      if (wcStripeFee !== stripePayout.fee) {
+      if (wcStripeFee !== parseFloat(stripePayout.fee)) {
         throw new Error(
           `Order Stripe Fee '${wcStripeFee}' does not match Stripe Payout Fee: '${stripePayout.fee}'`
         );
       }
 
-      if (wcStripeNet !== stripePayout.net) {
+      if (wcStripeNet !== parseFloat(stripePayout.net)) {
         throw new Error(
           `Order Stripe Net '${wcStripeNet}' does not match Stripe Payout Net: '${stripePayout.net}'`
         );
