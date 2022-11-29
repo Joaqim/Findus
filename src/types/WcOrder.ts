@@ -5,8 +5,8 @@
 
 export interface Refund {
   id: number;
-  date_created: Date;
-  date_created_gmt: Date;
+  date_created: string;
+  date_created_gmt: string;
   amount: string;
   reason: string;
   refunded_by: number;
