@@ -13,10 +13,10 @@ import type {
   InvoiceRowInit,
   Refund,
   WcOrder,
-  WcOrderGiftCard
+  WcOrderGiftCard,
 } from "./types";
 import type RefundItem from "./types/RefundItem";
-import { formatDate, sanitizeTextForFortnox } from "./utils";
+import { formatDate } from "./utils";
 import WcOrders from "./WcOrders";
 
 export default abstract class Invoices {
@@ -104,29 +104,20 @@ export default abstract class Invoices {
 
   public static tryCreateRefundObject(
     invoice: Invoice,
-    refunds: Refund[] | RefundElement[]
+    refunds: Refund[]
   ): RefundItem[] | undefined {
     const refundItems: RefundItem[] = [];
 
     for (const refund of refunds) {
       const { reason, id } = refund;
       const refundItem: RefundItem = { items: [], reason, id: id.toString() };
-      const isSimpleRefund = !Object.prototype.hasOwnProperty.call(
-        refund,
-        "amount"
-      );
 
       let expectedAmount = 0;
       let actualAmount = 0;
 
-      // In both cases, negate '-', making expectedAmount positive.
-      if (isSimpleRefund) {
-        expectedAmount = -parseFloat((refund as RefundElement).total);
-      } else {
-        expectedAmount = -parseFloat((refund as Refund).amount);
-      }
+      expectedAmount = parseFloat((refund as Refund).amount);
 
-      if (expectedAmount < 0) {
+      if (expectedAmount <= 0) {
         throw new Error(
           `Unexpected Refund Amount: ${expectedAmount}, expected to be a positive number for refund: '${reason}'`
         );
@@ -134,6 +125,12 @@ export default abstract class Invoices {
 
       const invoiceRowSimple = (item: InvoiceRow): InvoiceRowInit => {
         if (item.AccountNumber === undefined) {
+          throw new Error(
+            `Unexpected missing AccountNumber for InvoiceRow Item: ${item.ArticleNumber}, for refund: '${reason}'`
+          );
+        }
+
+        if (item.VAT === undefined) {
           throw new Error(
             `Unexpected missing AccountNumber for InvoiceRow Item: ${item.ArticleNumber}, for refund: '${reason}'`
           );
@@ -148,6 +145,7 @@ export default abstract class Invoices {
         return {
           ArticleNumber: item.ArticleNumber,
           AccountNumber: item.AccountNumber as number,
+          VAT: item.VAT,
           DeliveredQuantity: item.DeliveredQuantity as number,
           Price: item.Price,
         };
@@ -155,27 +153,28 @@ export default abstract class Invoices {
 
       const defaultAccountAndVat = Invoices.tryGetHighestVATAccount(invoice);
 
-      if (refunds.length === 1 && isSimpleRefund) {
-        if (refund.reason === "Refund Shipping") {
-          for (const item of invoice.InvoiceRows) {
-            if (item.ArticleNumber.startsWith("Shipping")) {
-              refundItem.items.push(invoiceRowSimple(item));
+      // if (refunds.length === 1) {
+      if (refund.reason === "Refund Shipping") {
+        for (const item of invoice.InvoiceRows) {
+          if (item.ArticleNumber.startsWith("Shipping")) {
+            refundItem.items.push(invoiceRowSimple(item));
 
-              actualAmount += item.Price;
-            }
+            actualAmount += item.Price;
           }
-        } else if (/discount/i.test(reason)) {
-          // TODO: Which account do we use when we apply discount?
-          throw new Error(`Missing Implementation, for refund: '${reason}'`);
+        }
+      } else if (/discount/i.test(reason)) {
+        // TODO: Which account do we use when we apply discount?
+        throw new Error(`Missing Implementation, for refund: '${reason}'`);
 
-          refundItem.items.push({
-            ArticleNumber: "Discount",
-            Price: expectedAmount,
-            DeliveredQuantity: 1,
-            ...defaultAccountAndVat,
-          });
-          actualAmount = expectedAmount;
-        } else {
+        refundItem.items.push({
+          ArticleNumber: "Discount",
+          Price: expectedAmount,
+          DeliveredQuantity: 1,
+          ...defaultAccountAndVat,
+        });
+        actualAmount = expectedAmount;
+        /* } else {
+
           let ArticleNumber: string | undefined;
 
           if (reason.startsWith("Refunded, replaced with")) {
@@ -196,30 +195,34 @@ export default abstract class Invoices {
             ...defaultAccountAndVat,
           });
           actualAmount = expectedAmount;
-        }
+          */
       } else {
         // Only keep items that match sku and price in refund
         for (const item of invoice.InvoiceRows) {
           if (item.Price > 0) {
-            for (const refundLineItem of (refund as Refund).line_items) {
+            for (const refundLineItem of refund.line_items) {
               const refundPrice = -LineItems.getTotalWithTax(refundLineItem);
 
               if (refundLineItem.sku === item.ArticleNumber) {
-                if (refundPrice !== item.Price) {
+                if (-refundPrice !== item.Price) {
                   throw new Error(
-                    `Refund amount missmatch for ${item.ArticleNumber}, expected ${item.Price}, got ${refundPrice}, for refund: '${reason}'`
+                    `Refund amount missmatch for ${
+                      item.ArticleNumber
+                    }, expected ${
+                      item.Price
+                    }, got ${-refundPrice}, for refund: '${reason}'`
                   );
                 }
 
                 refundItem.items.push(invoiceRowSimple(item));
-                actualAmount += refundPrice;
+                actualAmount += -refundPrice;
               }
             }
           }
         }
       }
 
-      if (expectedAmount !== actualAmount) {
+      if (Math.abs(expectedAmount - actualAmount) > 0.000_000_1) {
         throw new Error(
           `Invalid Refund amount, expected: ${expectedAmount}, got: ${actualAmount}, for refund: '${reason}'`
         );
@@ -352,6 +355,54 @@ export default abstract class Invoices {
     return creditInvoice;
   }
 
+  public static tryCreateRefundedCreditInvoice(
+    invoice: Invoice,
+    refunds: Refund[]
+  ): Invoice {
+    const creditInvoiceRows: InvoiceRow[] = [];
+
+    for (const refund of refunds) {
+      const expectedAmount = parseFloat(refund.amount);
+      let actualAmount = 0;
+
+      for (const item of refund.line_items) {
+        // eslint-disable-next-line no-loop-func
+        invoice.InvoiceRows.forEach((row) => {
+          if (item.sku === row.ArticleNumber) {
+            const totalPrice = -(
+              parseFloat(item.total) + parseFloat(item.total_tax)
+            );
+
+            if (totalPrice > 0) {
+              const refundedQuantity = Math.round(totalPrice / row.Price);
+              const itemPrice = totalPrice / refundedQuantity;
+
+              if (refundedQuantity * itemPrice !== totalPrice) {
+                throw new Error(
+                  `Calculated Item Price of ${itemPrice}, is inaccurate, ${refundedQuantity} * ${itemPrice} !== ${totalPrice}`
+                );
+              }
+
+              actualAmount += totalPrice;
+
+              creditInvoiceRows.push({
+                ...row,
+                Price: itemPrice,
+                DeliveredQuantity: -refundedQuantity,
+              });
+            }
+          }
+        });
+      }
+
+      if (Math.abs(actualAmount - expectedAmount) > 0.000_001)
+        throw new Error(
+          `Failed to create Refund, expected: ${expectedAmount}, but instead got: ${actualAmount}`
+        );
+    }
+    return { ...invoice, InvoiceRows: creditInvoiceRows };
+  }
+
   public static tryCreateFullRefund(
     order: WcOrder,
     creditInvoice: Partial<Invoice>
@@ -365,7 +416,7 @@ export default abstract class Invoices {
         const account = Accounts.tryGetSalesRateForItem(order, item);
         invoiceRows.push({
           ArticleNumber: item.sku,
-          DeliveredQuantity: item.quantity,
+          DeliveredQuantity: -item.quantity,
           AccountNumber: account.accountNumber,
           Price: price,
         });

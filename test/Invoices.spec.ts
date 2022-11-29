@@ -1,10 +1,18 @@
 import { expect } from "chai";
 import { WcOrder } from "wooconvert";
-import { InvoiceRow, Invoices, WcOrders, WooConvert } from "../src";
+import {
+  InvoiceRow,
+  Invoices,
+  Refund,
+  RefundItem,
+  WcOrders,
+  WooConvert
+} from "../src";
 
 import orderWithOnlyGiftCard from "./data/order_with_only_gift_cards.json";
 import orderWithRedeemedGiftCard from "./data/order_with_redeemed_gift_card.json";
 import orderWithRoundingMissmatch from "./data/order_with_rounding_missmatch.json";
+import orderAndRefund from "./data/partial_order_and_refund_object.json";
 
 import wooOrders from "./orders.mock.json";
 
@@ -51,7 +59,12 @@ describe("Invoices", () => {
 
   it("Can create Invoice with total cost miss-match and add Rounding 'Article'", () => {
     const order = toOrder(orderWithRoundingMissmatch);
-    const invoice = Invoices.tryCreateInvoice(order, 10.2345, "completed", 94.4);
+    const invoice = Invoices.tryCreateInvoice(
+      order,
+      10.2345,
+      "completed",
+      94.4
+    );
     const roundingArticleRow = invoice.InvoiceRows.find(
       (i) => i.ArticleNumber === "ROUNDING"
     );
@@ -78,7 +91,7 @@ describe("Invoices", () => {
     const giftCardRedeemArticles =
       Invoices.tryCreateGiftCardRedeemArticles(invoice);
 
-    expect(giftCardRedeemArticles).to.be.not.undefined;
+    expect(giftCardRedeemArticles).to.not.be.undefined;
 
     console.log({ giftCardRedeemArticles });
 
@@ -86,5 +99,49 @@ describe("Invoices", () => {
     expect(
       InvoiceRows.some((item) => item.ArticleNumber.includes("GIFTCARD-REDEEM"))
     ).to.be.true;
+  });
+
+  it("Can create Credit Invoice for existing Invoice with Refund Object from Woo", () => {
+    const order = toOrder(orderAndRefund["order"]);
+    const refunds = orderAndRefund["refund"] as Refund[];
+
+    const invoice = Invoices.tryCreateInvoice(
+      { ...order, status: "completed" },
+      10.2345
+    );
+
+    const refundObjects = Invoices.tryCreateRefundObject(invoice, refunds);
+    expect(refundObjects).to.not.be.undefined;
+    const refundObject = (refundObjects as RefundItem[])[0];
+    console.log({ ...refundObject.items });
+    expect(refundObject.items).to.deep.equal([
+      {
+        ArticleNumber: "GAMERSUPPS066",
+        AccountNumber: 3002,
+        VAT: 12,
+        DeliveredQuantity: 1,
+        Price: 44.99,
+      },
+      {
+        ArticleNumber: "GAMERSUPPS040",
+        AccountNumber: 3002,
+        VAT: 12,
+        DeliveredQuantity: 1,
+        Price: 2.99,
+      },
+      {
+        ArticleNumber: "GAMERSUPPS038",
+        AccountNumber: 3002,
+        VAT: 12,
+        DeliveredQuantity: 1,
+        Price: 2.99,
+      },
+    ]);
+
+    const creditInvoice = Invoices.tryCreateRefundedCreditInvoice(
+      invoice,
+      refunds
+    );
+      console.log(JSON.stringify(creditInvoice, null, 4))
   });
 });
