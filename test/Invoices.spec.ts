@@ -1,12 +1,11 @@
 import { expect } from "chai";
-import { WcOrder } from "wooconvert";
 import {
   InvoiceRow,
   Invoices,
   Refund,
   RefundItem,
+  WcOrder,
   WcOrders,
-  WooConvert
 } from "../src";
 
 import orderWithOnlyGiftCard from "./data/order_with_only_gift_cards.json";
@@ -20,9 +19,7 @@ const toOrder = (orderObject: object): WcOrder => orderObject as WcOrder; //WooC
 
 describe("Invoices", () => {
   it("Order can be partially refunded", () => {
-    const completedOrder = WooConvert.toWcOrder(
-      JSON.stringify(wooOrders.data[0])
-    );
+    const completedOrder = wooOrders.data[0] as WcOrder;
   });
 
   it("Can create Invoice from Order with _only_ gift cards purchases", () => {
@@ -36,7 +33,12 @@ describe("Invoices", () => {
     expect(parseFloat(giftCards[0].total)).to.eq(amountCurrency);
     expect(giftCards[0].total).to.equal(order.total);
 
-    const invoice = Invoices.tryCreateInvoice(order, 10.2345, "completed");
+    const invoice = Invoices.tryCreateInvoice(
+      order,
+      10.2345,
+      "GB",
+      "completed"
+    );
 
     expect(() => Invoices.tryCreateGiftCardRedeemArticles(invoice)).to.throw(
       "Invoice is missing expected Gift Card Redeem"
@@ -62,7 +64,8 @@ describe("Invoices", () => {
     const invoice = Invoices.tryCreateInvoice(
       order,
       10.2345,
-      "completed",
+      "GB",
+      order.status,
       94.4
     );
     const roundingArticleRow = invoice.InvoiceRows.find(
@@ -84,7 +87,12 @@ describe("Invoices", () => {
 
   it("Can create Invoice from Order with only purchases with _redeemed_ gift card", () => {
     const order = toOrder(orderWithRedeemedGiftCard);
-    const invoice = Invoices.tryCreateInvoice(order, 10.2345, "completed");
+    const invoice = Invoices.tryCreateInvoice(
+      order,
+      10.2345,
+      "GB",
+      "completed"
+    );
 
     expect(Invoices.hasGiftCardRedeem(invoice)).to.be.true;
 
@@ -107,7 +115,8 @@ describe("Invoices", () => {
 
     const invoice = Invoices.tryCreateInvoice(
       { ...order, status: "completed" },
-      10.2345
+      10.2345,
+      "GB"
     );
 
     const refundObjects = Invoices.tryCreateRefundObject(invoice, refunds);
@@ -142,6 +151,6 @@ describe("Invoices", () => {
       invoice,
       refunds
     );
-      console.log(JSON.stringify(creditInvoice, null, 4))
+    console.log(JSON.stringify(creditInvoice, null, 4));
   });
 });

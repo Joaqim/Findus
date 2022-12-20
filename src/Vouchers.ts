@@ -5,6 +5,7 @@ export default abstract class Vouchers {
   public static tryCreateVoucherForPaymentFee(
     order: WcOrder,
     currencyRate: number,
+    storefrontPrefix: "ND" | "GB",
     paymentMethod_?: "Stripe" | "PayPal"
   ): Voucher {
     WcOrders.tryVerifyCurrencyRate(order, currencyRate);
@@ -32,7 +33,7 @@ export default abstract class Vouchers {
     }
 
     return {
-      Description: `Payment Fee: ${order.id} via ${paymentMethod}`,
+      Description: `Payment Fee: ${storefrontPrefix}-${order.id} via ${paymentMethod}`,
       TransactionDate: WcOrders.getPaymentDate(order),
       VoucherSeries: "B",
       VoucherRows: [

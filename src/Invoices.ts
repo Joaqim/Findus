@@ -430,9 +430,9 @@ export default abstract class Invoices {
 
   private static tryGenerateCashPaymentInvoice(
     order: WcOrder,
+    storefrontPrefix: "ND" | "GB",
     containsOnlyGiftCards = false
   ): Omit<Invoice, "CurrencyRate" | "InvoiceRows"> {
-    const orderId = order.id as string;
     const paymentMethod = WcOrders.tryGetPaymentMethod(order);
 
     const Country = CultureInfo.tryGetEnglishName(order.billing.country);
@@ -443,17 +443,11 @@ export default abstract class Invoices {
       DeliveryCountry = CultureInfo.tryGetEnglishName(order.shipping.country);
     }
 
-    let orderPrefix: string | undefined;
-
-    if (typeof order.id === "string" && !order.id.includes("-")) {
-      orderPrefix = order.meta_data.find(
-        (meta) => meta.key === "storefront_prefix"
-      )?.value;
-    }
-
     const InvoiceDate = new Date(order.date_paid).toLocaleDateString("sv-SE");
     const InvoiceType = paymentMethod === "Stripe" ? "INVOICE" : "CASHINVOICE";
     const PaymentWay = paymentMethod === "Stripe" ? undefined : "CASH";
+
+    const YourOrderNumber = `${storefrontPrefix}-${order.id}`;
 
     return {
       InvoiceDate,
@@ -472,7 +466,7 @@ export default abstract class Invoices {
 
       VATIncluded: true,
 
-      YourOrderNumber: orderPrefix ? `${orderPrefix}-${orderId}` : orderId,
+      YourOrderNumber,
 
       // YourReference: "findus",
 
@@ -766,7 +760,8 @@ export default abstract class Invoices {
   public static tryCreateInvoice(
     order: WcOrder,
     currencyRate: number,
-    expectedOrderStatus: "completed" | "refunded" = "completed",
+    storefrontPrefix: "GB" | "ND",
+    expectedOrderStatus: "completed" | "refunded" | string = "completed",
     expectedTotal?: number
   ): Invoice {
     if (order.status !== expectedOrderStatus) {
@@ -782,7 +777,11 @@ export default abstract class Invoices {
     const paymentMethod = WcOrders.tryGetPaymentMethod(order);
 
     const invoice: Invoice = {
-      ...this.tryGenerateCashPaymentInvoice(order, containsOnlyGiftCards),
+      ...this.tryGenerateCashPaymentInvoice(
+        order,
+        storefrontPrefix,
+        containsOnlyGiftCards
+      ),
 
       InvoiceDate: WcOrders.getPaymentDate(order),
 

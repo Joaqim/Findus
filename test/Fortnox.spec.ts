@@ -10,10 +10,8 @@ import {
   Verification,
   Vouchers,
   WcOrder,
-  WcOrders
+  WcOrders,
 } from "../src";
-
-import { Convert } from "wooconvert";
 
 import { removeEmojis, sanitizeTextForFortnox } from "../src/utils";
 import wooOrdersGamerbulk from "./orders.gamerbulk.json";
@@ -39,17 +37,17 @@ const mockCurrencyRate = (order: WcOrder): number => {
 
 describe("Can process Orders from Gamerbulk", () => {
   it("Can create Fortnox Payment Expense", () => {
-    const order = Convert.toWcOrder(JSON.stringify(wooOrdersGamerbulk[1]));
+    const order = wooOrdersGamerbulk[1] as WcOrder;
     const currencyRate = mockCurrencyRate(order);
-    const invoice = Invoices.tryCreateInvoice(order, currencyRate);
+    const invoice = Invoices.tryCreateInvoice(order, currencyRate, "GB");
 
     const paymentMethod = WcOrders.tryGetPaymentMethod(order);
     const paymentFee = WcOrders.tryGetPaymentFee(order, paymentMethod);
 
-
     const voucher = Vouchers.tryCreateVoucherForPaymentFee(
       order,
       currencyRate,
+      'GB',
       paymentMethod as "Stripe" | "PayPal"
     );
 
@@ -83,10 +81,10 @@ describe("Can process Orders from Gamerbulk", () => {
   });
 
   it("Can process French order in EUR", () => {
-    const order = Convert.toWcOrder(JSON.stringify(wooOrders.data[0]));
+    const order = wooOrders.data[0] as WcOrder;
 
     const currencyRate = mockCurrencyRate(order);
-    const invoice = Invoices.tryCreateInvoice(order, currencyRate);
+    const invoice = Invoices.tryCreateInvoice(order, currencyRate, "GB");
     // console.log(invoice);
 
     expect(invoice.Country).to.equal(
@@ -98,7 +96,7 @@ describe("Can process Orders from Gamerbulk", () => {
 
     expect(invoice.InvoiceType).to.equal("INVOICE");
 
-    expect(Invoices.tryCreateInvoice(order, 10.23).CurrencyRate).to.equal(
+    expect(Invoices.tryCreateInvoice(order, 10.23, "GB").CurrencyRate).to.equal(
       10.23
     );
 
@@ -118,7 +116,7 @@ describe("Can process Orders from Gamerbulk", () => {
   });
 
   it("Can process Swedish order in SEK", () => {
-    const order = Convert.toWcOrder(JSON.stringify(wooOrders.data[0]));
+    const order = wooOrders.data[0] as WcOrder;
     const orderSEK: WcOrder = {
       ...order,
       billing: { ...order.billing, country: "SE" },
@@ -128,17 +126,17 @@ describe("Can process Orders from Gamerbulk", () => {
       meta_data: [{ id: 0, key: "_paypal_transaction_fee", value: 14.77 }],
     };
 
-    const invoiceSEK = Invoices.tryCreateInvoice(orderSEK, 1);
+    const invoiceSEK = Invoices.tryCreateInvoice(orderSEK, 1, "GB");
     expect(invoiceSEK.CurrencyRate).to.equal(1);
-    expect(() => Invoices.tryCreateInvoice(orderSEK, 10.23)).to.throw();
+    expect(() => Invoices.tryCreateInvoice(orderSEK, 10.23, "GB")).to.throw();
 
     const customerSEK = Customers.tryCreateCustomer(orderSEK);
     expect(customerSEK.VATType).to.equal("SEVAT");
 
-    const voucherSEK = Vouchers.tryCreateVoucherForPaymentFee(orderSEK, 1);
+    const voucherSEK = Vouchers.tryCreateVoucherForPaymentFee(orderSEK, 1, 'GB');
     console.log(voucherSEK);
     expect(voucherSEK).to.deep.equal({
-      Description: "Payment Fee: 29199 via PayPal",
+      Description: "Payment Fee: GB-29199 via PayPal",
       TransactionDate: "2022-05-31",
       VoucherSeries: "B",
       VoucherRows: [
@@ -149,7 +147,7 @@ describe("Can process Orders from Gamerbulk", () => {
   });
 
   it("Can process Canadian order in USD", () => {
-    const order = Convert.toWcOrder(JSON.stringify(wooOrders.data[0]));
+    const order = wooOrders.data[0] as WcOrder;
     const orderUSD: WcOrder = {
       ...order,
       billing: { ...order.billing, country: "CA" },
@@ -159,7 +157,7 @@ describe("Can process Orders from Gamerbulk", () => {
       meta_data: [],
     };
 
-    const invoiceUSD = Invoices.tryCreateInvoice(orderUSD, 10.23);
+    const invoiceUSD = Invoices.tryCreateInvoice(orderUSD, 10.23, "GB");
 
     const customerUSD = Customers.tryCreateCustomer(orderUSD);
     expect(customerUSD.VATType).to.equal("EXPORT");
@@ -167,20 +165,24 @@ describe("Can process Orders from Gamerbulk", () => {
 
   it("Can process multiple real orders from Gamerbulk", () => {
     for (const order of wooOrdersGamerbulk) {
-      const orderObject = Convert.toWcOrder(JSON.stringify(order));
+      const orderObject = order as WcOrder;
       const currencyRate = mockCurrencyRate(orderObject);
       try {
         if (order.id === "107455") {
-          expect(Invoices.tryCreateInvoice(orderObject, currencyRate)).to.throw(
-            "Order was created manually by 'admin'."
-          );
-        } else if (orderObject.id === "GB-31687") {
-          expect(() =>
-            Invoices.tryCreateInvoice(orderObject, currencyRate)
+          expect(
+            Invoices.tryCreateInvoice(orderObject, currencyRate, "GB")
           ).to.throw("Order was created manually by 'admin'.");
-        } else if (orderObject.id === "GB-31867") {
-          const invoice = Invoices.tryCreateInvoice(orderObject, currencyRate);
-          console.log(invoice)
+        } else if (orderObject.id === "31687") {
+          expect(() =>
+            Invoices.tryCreateInvoice(orderObject, currencyRate, "GB")
+          ).to.throw("Order was created manually by 'admin'.");
+        } else if (orderObject.id === "31867") {
+          const invoice = Invoices.tryCreateInvoice(
+            orderObject,
+            currencyRate,
+            "GB"
+          );
+          console.log(invoice);
           expect(invoice).to.deep.equal({
             InvoiceDate: "2022-06-22",
             DueDate: "2022-06-22",
@@ -192,7 +194,7 @@ describe("Can process Orders from Gamerbulk", () => {
             DeliveryCountry: "Denmark",
             VATIncluded: true,
             YourOrderNumber: "GB-31867",
-            CurrencyRate: 10.234,
+            CurrencyRate: currencyRate,
             InvoiceRows: [
               {
                 AccountNumber: 3121,
@@ -217,12 +219,12 @@ describe("Can process Orders from Gamerbulk", () => {
                 DeliveredQuantity: 1,
                 Price: 19.9875,
                 VAT: 25,
-              }
+              },
             ],
           });
         } else {
           WcOrders.tryGetAccurateTotal(orderObject);
-          Invoices.tryCreateInvoice(orderObject, currencyRate);
+          Invoices.tryCreateInvoice(orderObject, currencyRate, "GB");
         }
       } catch (reason) {
         if (
@@ -238,9 +240,9 @@ describe("Can process Orders from Gamerbulk", () => {
 
   describe("Can process Orders from Naudrinks", () => {
     it("Can process Swedish order in SEK", () => {
-      const orderSEK = Convert.toWcOrder(JSON.stringify(wooOrdersNaudrinks[0]));
+      const orderSEK = wooOrdersNaudrinks[0] as WcOrder;
 
-      const invoiceSEK = Invoices.tryCreateInvoice(orderSEK, 1);
+      const invoiceSEK = Invoices.tryCreateInvoice(orderSEK, 1, "ND");
 
       const customerSEK = Customers.tryCreateCustomer(orderSEK);
       expect(customerSEK.VATType).to.equal("SEVAT");
@@ -248,17 +250,15 @@ describe("Can process Orders from Gamerbulk", () => {
 
     it("Can process multiple real orders from Naudrinks", () => {
       try {
-        for (const order of wooOrdersNaudrinks) {
-          const orderObject = Convert.toWcOrder(JSON.stringify(order));
-          const currencyRate = mockCurrencyRate(orderObject);
+        for (const orderData of wooOrdersNaudrinks) {
+          const order = orderData as WcOrder;
+          const currencyRate = mockCurrencyRate(order);
 
-          WcOrders.tryGetAccurateTotal(orderObject);
-          const invoice = Invoices.tryCreateInvoice(orderObject, currencyRate);
+          WcOrders.tryGetAccurateTotal(order);
+          const invoice = Invoices.tryCreateInvoice(order, currencyRate, "ND");
           //console.log(invoice);
           if (order.id === "ND-107674") {
-            expect(orderObject.line_items[0].tax_class).to.equal(
-              "reduced-rate"
-            );
+            expect(order.line_items[0].tax_class).to.equal("reduced-rate");
             expect(invoice.InvoiceRows[0]).to.deep.equal({
               AccountNumber: 3140,
               VAT: 10,
@@ -282,8 +282,8 @@ describe("Can process Orders from Gamerbulk", () => {
   });
 
   it("Can create a simple Verification overview of Invoice & Order", () => {
-    const order = Convert.toWcOrder(JSON.stringify(wooOrdersGamerbulk[1]));
-    const invoice = Invoices.tryCreateInvoice(order, 10.23);
+    const order = wooOrdersGamerbulk[1] as WcOrder;
+    const invoice = Invoices.tryCreateInvoice(order, 10.23, "GB");
     const verification = Verification.tryCreateVerification(
       invoice,
       order,
@@ -308,8 +308,8 @@ describe("Can process Orders from Gamerbulk", () => {
   });
 
   it("Can refund Shipping Cost of existing Invoice of Order", () => {
-    const order = Convert.toWcOrder(JSON.stringify(wooOrdersPartialRefund[2]));
-    const invoice = Invoices.tryCreateInvoice(order, 10.234);
+    const order = wooOrdersPartialRefund[2] as WcOrder;
+    const invoice = Invoices.tryCreateInvoice(order, 10.234, "GB");
 
     let mockCreditInvoice: Partial<Invoice> = {
       Credit: true,
@@ -373,14 +373,14 @@ describe("Can process Orders from Gamerbulk", () => {
   });
 
   it("Can apply discount Refund as Credit Invoice to existing Invoice ", () => {
-    const order = Convert.toWcOrder(JSON.stringify(wooOrdersPartialRefund[3]));
-    const invoice = Invoices.tryCreateInvoice(order, 10.234);
+    const order = wooOrdersPartialRefund[3] as WcOrder;
+    const invoice = Invoices.tryCreateInvoice(order, 10.234, "GB");
 
     let mockCreditInvoice: Partial<Invoice> = {
       Credit: true,
       DocumentNumber: "123",
       InvoiceRows: invoice.InvoiceRows,
-      DeliveryCountry: "Denmark"
+      DeliveryCountry: "Denmark",
     };
 
     const mockRefund: Partial<Refund>[] = [
@@ -420,7 +420,7 @@ describe("Fortnox Sanitized Item Description", () => {
     ).to.be.false;
   });
   it("Articles shouldn't contain unsupported characters", () => {
-    const order = Convert.toWcOrder(JSON.stringify(wooOrdersGamerbulk[0]));
+    const order = wooOrdersGamerbulk[0] as WcOrder;
     const articles = Articles.createArticles(order);
     articles.forEach((article) => {
       expect(/[[\]^{|}~–]/g.test(article.Description)).to.be.false;

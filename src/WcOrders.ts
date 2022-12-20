@@ -277,7 +277,7 @@ abstract class WcOrders {
 
     if (!["EUR", "USD", "SEK"].includes(currency)) {
       throw new Error(
-        `Unexpected currency: '${currency}', expected: EUR, USD or SEK.`
+        `Unexpected Currency: '${currency}', expected: EUR, USD or SEK.`
       );
     }
 
@@ -297,14 +297,14 @@ abstract class WcOrders {
     }
 
     throw new Error(
-      `Unexpected Currency Rate for '${currency}': ${currencyRate}`
+      `Unexpected Currency Rate for Currency: '${currency}' - Currency Rate: ${currencyRate}`
     );
   }
 
   public static tryGetCurrency(order: WcOrder): "SEK" | "EUR" | "USD" {
     if (!/SEK|EUR|USD/.test(order.currency)) {
       throw new Error(
-        `Unexpected Currency: ${order.currency}, expected: SEK, EUR or USD.`
+        `Unexpected Currency: '${order.currency}', expected: SEK, EUR or USD.`
       );
     }
     return order.currency as "SEK" | "EUR" | "USD";
@@ -540,6 +540,14 @@ abstract class WcOrders {
     )?.value as string;
   }
 
+  public static createDocumentLink(
+    orderId: string | number,
+    storefrontUrl: string,
+    orderKey: string
+  ): string {
+    return `${storefrontUrl}/wp-admin/admin-ajax.php?action=generate_wpo_wcpdf&template_type=invoice&order_ids=${orderId}&order_key=${orderKey}`;
+  }
+
   public static tryGetDocumentLink(
     order: WcOrder,
     storefrontUrl?: string
@@ -579,7 +587,7 @@ abstract class WcOrders {
         orderId = orderId.split("-")[1];
       }
 
-      return `${storeUrl}/wp-admin/admin-ajax.php?action=generate_wpo_wcpdf&template_type=invoice&order_ids=${orderId}&order_key=${orderKey}`;
+      return this.createDocumentLink(orderId, storeUrl, orderKey);
     }
 
     return `${storefrontUrl}/wp-admin/admin-ajax.php?action=generate_wpo_wcpdf&template_type=invoice&order_ids=${order.id}&order_key=${orderKey}`;
