@@ -1,9 +1,9 @@
 {
   "compilerOptions": {
-    "module": "commonjs",
-    "target": "es5",
+    "module": "CommonJS",
+    "target": "ES6",
     "composite": true,
-    "outDir": "dist",
+    "outDir": "out/test",
     "rootDir": ".",
     "sourceMap": true,
     "strict": false,
@@ -21,6 +21,7 @@
   ],
   "exclude": [
     "node_modules",
-    "lib"
+    "dist-es6",
+    "dist-cjs",
   ]
 }

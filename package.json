@@ -2,16 +2,25 @@
   "name": "findus",
   "version": "1.0.1",
   "description": "",
-  "main": "lib/index.js",
-  "module": "lib/index.js",
-  "types": "lib/index.d.ts",
+
+  "exports": {
+      "require": "./dist-cjs/index.js",
+      "import": "./wrapper-es6/index.mjs"
+  },
+  "main": "./dist-cjs/index.js",
+  "types": "./dist-cjs/index.d.ts",
+  "type": "commonjs",
+
   "scripts": {
-    "ts-types": " tsc -p tsconfig.build.json --emitDeclarationOnly --outDir lib",
-    "build": "rimraf lib && node ./esbuild.js && npm run ts-types",
+    "ts-types:es6": " tsc -p tsconfig.es6.json --emitDeclarationOnly --outDir dist-es6",
+    "ts-types:cjs": " tsc -p tsconfig.cjs.json --emitDeclarationOnly --outDir dist-cjs",
+    "build": "npm run build:es6 && npm run build:cjs",
+    "build:es6": "rimraf dist-e6 && node ./esbuild.es6.js && npm run ts-types:es6",
+    "build:cjs": "rimraf dist-cjs && node ./esbuild.cjs.js && npm run ts-types:cjs",
     "test": "ts-mocha -p tsconfig.test.json test/**/*.spec.ts",
     "lint": "eslint --ext .ts src",
     "lint:fix": "eslint --ext .ts --fix src",
-    "docs": "typedoc ./src --out ./docs --tsconfig tsconfig.build.json && touch ./docs/.nojekyll",
+    "docs": "typedoc ./src --out ./docs --tsconfig tsconfig.json && touch ./docs/.nojekyll",
     "precommit": "npm build",
     "prepush": "npm test",
     "prepare": "husky install"

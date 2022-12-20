@@ -1,11 +1,11 @@
 {
   "compilerOptions": {
     "outDir": "out/spec",
-    "target": "es5",
-    "module": "ESNext",
+    "target": "ES6",
+    "module": "ES6",
     "moduleResolution": "Node",
     "lib": [
-      "ES2017"
+      "ES6"
     ],
     "sourceMap": true,
     "strict": true,
@@ -22,17 +22,24 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
     "isolatedModules": true,
     "baseUrl": "."
   },
-
   "include": [
     "src/**/*.ts",
-    "src/**/*.d.ts",
-    "test/**/*.ts",
+    "src/**/*.d.ts"
   ],
   "exclude": [
-    "lib",
+    "dist-cjs",
+    "dist-es6",
+    "**/*.spec.ts"
   ],
+  "typedocOptions": {
+    "out": "docs",
+    "entryPoints": "src/index.ts",
+    "exclude": [
+      "test/**/*.ts",
+      "node_modules"
+    ]
+  }
 }

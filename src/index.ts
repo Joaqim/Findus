@@ -11,6 +11,7 @@ export { default as Invoices } from "./Invoices";
 export * from "./LineItems";
 export { default as LineItems } from "./LineItems";
 export { default as StripePayouts } from "./StripePayouts";
+export { default as SupplierInvoices } from "./SupplierInvoices";
 export * from "./types";
 export * from "./utils";
 export * from "./Verification";
