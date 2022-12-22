@@ -30,8 +30,7 @@
     "src/**/*.d.ts"
   ],
   "exclude": [
-    "dist-cjs",
-    "dist-es6",
+    "dist",
     "**/*.spec.ts"
   ],
   "typedocOptions": {

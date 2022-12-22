@@ -21,7 +21,6 @@
   ],
   "exclude": [
     "node_modules",
-    "dist-es6",
-    "dist-cjs",
+    "dist",
   ]
 }

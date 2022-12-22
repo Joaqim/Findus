@@ -3,7 +3,7 @@ const esbuild = require("esbuild");
 
 esbuild.buildSync({
   entryPoints: ["src/index.ts"],
-  outdir: "lib",
+  outdir: "dist/esm",
   bundle: true,
   sourcemap: true,
   minify: true,

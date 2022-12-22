@@ -4,19 +4,19 @@
   "description": "",
 
   "exports": {
-      "require": "./dist-cjs/index.js",
-      "import": "./wrapper-es6/index.mjs"
+      "require": "./dist/cjs/index.js",
+      "import": "./dist/esm/index.js"
   },
-  "main": "./dist-cjs/index.js",
-  "types": "./dist-cjs/index.d.ts",
+  "main": "./dist/cjs/index.js",
+  "types": "./dist/cjs/index.d.ts",
   "type": "commonjs",
 
   "scripts": {
-    "ts-types:es6": " tsc -p tsconfig.es6.json --emitDeclarationOnly --outDir dist-es6",
-    "ts-types:cjs": " tsc -p tsconfig.cjs.json --emitDeclarationOnly --outDir dist-cjs",
-    "build": "npm run build:es6 && npm run build:cjs",
-    "build:es6": "rimraf dist-e6 && node ./esbuild.es6.js && npm run ts-types:es6",
-    "build:cjs": "rimraf dist-cjs && node ./esbuild.cjs.js && npm run ts-types:cjs",
+    "ts-types:esm": " tsc -p tsconfig.json --emitDeclarationOnly --outDir dist/esm",
+    "ts-types:cjs": " tsc -p tsconfig.cjs.json --emitDeclarationOnly --outDir dist/cjs",
+    "build": "npm run build:esm && npm run build:cjs",
+    "build:esm": "rimraf dist/esm && node ./esbuild.esm.js && npm run ts-types:esm",
+    "build:cjs": "rimraf dist/cjs && node ./esbuild.cjs.js && npm run ts-types:cjs",
     "test": "ts-mocha -p tsconfig.test.json test/**/*.spec.ts",
     "lint": "eslint --ext .ts src",
     "lint:fix": "eslint --ext .ts --fix src",

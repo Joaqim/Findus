@@ -3,7 +3,7 @@ const esbuild = require("esbuild");
 
 esbuild.buildSync({
   entryPoints: ["src/index.ts"],
-  outdir: "dist-cjs",
+  outdir: "dist/cjs",
   bundle: true,
   sourcemap: true,
   minify: true,
