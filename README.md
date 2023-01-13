@@ -1,7 +1,6 @@
 # Findus
-> Typescript library for use for integration of WooCommerce with Fortnox.
 
-<br>
+Typescript library for use for integration of WooCommerce with Fortnox.
 
 ## Example of usage for uploading, Customer, Articles and Invoice and occassional Voucher.
 
