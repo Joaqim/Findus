@@ -106,7 +106,7 @@ export interface RefundTaxLine {
 }
 
 export interface WcOrder {
-  id: number | string;
+  id: Readonly<number>;
   parent_id: number;
   number: string;
   order_key: string;
