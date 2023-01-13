@@ -5,6 +5,8 @@
 
 ## Example of usage for uploading, Customer, Articles and Invoice and occassional Voucher.
 
+> this.uploadDocument() is not part of Findus
+
 ```typescript
 const invoice = Invoices.tryCreateInvoice(
   order,
