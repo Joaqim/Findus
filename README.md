@@ -10,7 +10,9 @@ Typescript library used for integration of WooCommerce with Fortnox.
 const invoice = Invoices.tryCreateInvoice(
   order,
   currencyRate,
-  provider // 'GB' or 'ND'; implemantion is specific for Naudrink and Gamerbullk WooCommerce domains
+  // 'GB' or 'ND'; some implementations are diffrent for
+  // specific WooCommerce domains: Naudrinks / Gamerbulk.
+  provider
 );
 
 const paymentMethod = WcOrders.tryGetPaymentMethod(order);
