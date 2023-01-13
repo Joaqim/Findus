@@ -3,3 +3,4 @@ docs/
 dist/
 
 yarn-error.log
+/test/**/*.json
