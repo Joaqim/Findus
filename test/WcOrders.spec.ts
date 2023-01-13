@@ -8,7 +8,6 @@ import {
   WcOrder,
   WcOrders,
   WcOrderTaxLine,
-  WooConvert
 } from "../src";
 
 import wooOrders from "./orders.mock.json";
@@ -16,7 +15,7 @@ import taxes from "./taxes.mock";
 
 describe("WcOrders", () => {
   it("Can verify Order from WooCommerce", () => {
-    let order = WooConvert.toWcOrder(JSON.stringify(wooOrders.data[0]));
+    let order = wooOrders.data[0] as WcOrder;
     expect(() => WcOrders.tryVerifyOrder(order)).to.not.throw();
     order.prices_include_tax = false;
     expect(() => WcOrders.tryVerifyOrder(order)).to.throw();
@@ -88,11 +87,9 @@ describe("WcOrders", () => {
   });
 
   it("Gets Customer Name from shipping/billing addresses", () => {
-    let order: WcOrder = {
-      ...WooConvert.toWcOrder(JSON.stringify(wooOrders.data[0])),
-    };
+    let order = wooOrders.data[0] as WcOrder;
 
-    const invoice = Invoices.tryCreateInvoice(order, 10.234);
+    const invoice = Invoices.tryCreateInvoice(order, 10.234, 'GB');
     const customer = Customers.tryCreateCustomer(order);
 
     expect(customer.CountryCode).to.equal(

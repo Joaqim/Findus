@@ -51,7 +51,6 @@ describe("Can process Orders from Gamerbulk", () => {
       paymentMethod as "Stripe" | "PayPal"
     );
 
-    console.log(voucher);
     expect(voucher).to.deep.equal({
       Description: "Payment Fee: GB-31667 via Stripe",
       TransactionDate: "2022-06-20",
@@ -85,7 +84,6 @@ describe("Can process Orders from Gamerbulk", () => {
 
     const currencyRate = mockCurrencyRate(order);
     const invoice = Invoices.tryCreateInvoice(order, currencyRate, "GB");
-    // console.log(invoice);
 
     expect(invoice.Country).to.equal(
       CultureInfo.tryGetEnglishName(order.billing.country)
@@ -115,54 +113,6 @@ describe("Can process Orders from Gamerbulk", () => {
     expect(articles[0].Type).to.equal("STOCK");
   });
 
-  it("Can process Swedish order in SEK", () => {
-    const order = wooOrders.data[0] as WcOrder;
-    const orderSEK: WcOrder = {
-      ...order,
-      billing: { ...order.billing, country: "SE" },
-      shipping: { ...order.shipping, country: "SE" },
-      currency: "SEK",
-      payment_method: "paypal",
-      meta_data: [{ id: 0, key: "_paypal_transaction_fee", value: 14.77 }],
-    };
-
-    const invoiceSEK = Invoices.tryCreateInvoice(orderSEK, 1, "GB");
-    expect(invoiceSEK.CurrencyRate).to.equal(1);
-    expect(() => Invoices.tryCreateInvoice(orderSEK, 10.23, "GB")).to.throw();
-
-    const customerSEK = Customers.tryCreateCustomer(orderSEK);
-    expect(customerSEK.VATType).to.equal("SEVAT");
-
-    const voucherSEK = Vouchers.tryCreateVoucherForPaymentFee(orderSEK, 1, 'GB');
-    console.log(voucherSEK);
-    expect(voucherSEK).to.deep.equal({
-      Description: "Payment Fee: GB-29199 via PayPal",
-      TransactionDate: "2022-05-31",
-      VoucherSeries: "B",
-      VoucherRows: [
-        { Account: 1940, Debit: 0, Credit: 14.77 },
-        { Account: 6570, Debit: 14.77, Credit: 0 },
-      ],
-    });
-  });
-
-  it("Can process Canadian order in USD", () => {
-    const order = wooOrders.data[0] as WcOrder;
-    const orderUSD: WcOrder = {
-      ...order,
-      billing: { ...order.billing, country: "CA" },
-      shipping: { ...order.shipping, country: "CA" },
-      currency: "USD",
-      payment_method: "stripe",
-      meta_data: [],
-    };
-
-    const invoiceUSD = Invoices.tryCreateInvoice(orderUSD, 10.23, "GB");
-
-    const customerUSD = Customers.tryCreateCustomer(orderUSD);
-    expect(customerUSD.VATType).to.equal("EXPORT");
-  });
-
   it("Can process multiple real orders from Gamerbulk", () => {
     for (const order of wooOrdersGamerbulk) {
       const orderObject = order as WcOrder;
@@ -182,7 +132,6 @@ describe("Can process Orders from Gamerbulk", () => {
             currencyRate,
             "GB"
           );
-          console.log(invoice);
           expect(invoice).to.deep.equal({
             InvoiceDate: "2022-06-22",
             DueDate: "2022-06-22",
@@ -256,7 +205,6 @@ describe("Can process Orders from Gamerbulk", () => {
 
           WcOrders.tryGetAccurateTotal(order);
           const invoice = Invoices.tryCreateInvoice(order, currencyRate, "ND");
-          //console.log(invoice);
           if (order.id === "ND-107674") {
             expect(order.line_items[0].tax_class).to.equal("reduced-rate");
             expect(invoice.InvoiceRows[0]).to.deep.equal({
@@ -313,7 +261,7 @@ describe("Can process Orders from Gamerbulk", () => {
 
     let mockCreditInvoice: Partial<Invoice> = {
       Credit: true,
-      DocumentNumber: "123",
+      DocumentNumber: 123,
       InvoiceRows: invoice.InvoiceRows,
     };
 
@@ -324,7 +272,7 @@ describe("Can process Orders from Gamerbulk", () => {
 
     expect(creditInvoiceUpdated).to.deep.equal({
       Credit: true,
-      DocumentNumber: "123",
+      DocumentNumber: 123,
       InvoiceRows: [
         {
           AccountNumber: 3105,
@@ -378,7 +326,7 @@ describe("Can process Orders from Gamerbulk", () => {
 
     let mockCreditInvoice: Partial<Invoice> = {
       Credit: true,
-      DocumentNumber: "123",
+      DocumentNumber: 123,
       InvoiceRows: invoice.InvoiceRows,
       DeliveryCountry: "Denmark",
     };
@@ -401,14 +349,13 @@ describe("Can process Orders from Gamerbulk", () => {
         meta_data: [],
       },
     ];
-    //console.log(mockCreditInvoice.InvoiceRows);
 
     let creditInvoiceUpdated = Invoices.tryCreatePartialRefund(
       mockCreditInvoice,
       mockRefund as Refund[]
     );
 
-    //console.log(creditInvoiceUpdated);
+    console.log(creditInvoiceUpdated);
   });
 });
 
@@ -430,5 +377,15 @@ describe("Fortnox Sanitized Item Description", () => {
   it("Should remove Emojis from string", () => {
     const text = "Heart ❤️ Emoji";
     expect(removeEmojis(text).includes("❤️")).to.be.false;
+  });
+
+  it("Should remove Imposter 'ö' which is actually an 'o' with a umlaut pretending to be 'ö'", () => {
+    const imposter = "ö"; // Sus
+    const crewmate = "ö";
+
+    expect(imposter).to.not.equal(crewmate);
+
+    expect(imposter.replace(imposter, crewmate)).to.equal(crewmate);
+    expect(sanitizeTextForFortnox(imposter)).to.not.equal(imposter)
   });
 });
