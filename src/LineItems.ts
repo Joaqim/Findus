@@ -5,7 +5,13 @@ abstract class LineItems {
   public static getTotalWithTax(item: WcOrderLineItem): number {
     return (
       (parseFloat(item.total) + parseFloat(item.total_tax)) /
-      (item.quantity === 0 ? 1 : item.quantity)
+      (item.quantity === 0 ? 1 : item.quantity) // TODO: Should we always default quantity: 0 to 1?
+    );
+  }
+
+  public static getTotalWithoutTax(item: WcOrderLineItem): number {
+    return (
+      parseFloat(item.total) / (item.quantity === 0 ? 1 : item.quantity) // TODO: Should we always default quantity: 0 to 1?
     );
   }
 
@@ -34,9 +40,12 @@ abstract class LineItems {
     item: WcOrderLineItem,
     expectedVAT: number
   ): void {
-    const itemVat = (parseFloat(item.total_tax) / item.price).toFixed(2);
+    const itemVat =
+      LineItems.getAccurateTaxTotal(item) /
+      LineItems.getTotalWithoutTax(item) /
+      item.quantity;
 
-    if (itemVat !== expectedVAT.toFixed(2)) {
+    if (Math.abs(itemVat - expectedVAT) > 0.001) {
       throw new Error(
         `Item calculated VAT: '${itemVat}' doesn't match expected: ${expectedVAT}`
       );

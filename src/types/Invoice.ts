@@ -86,7 +86,7 @@ export default interface Invoice {
   DeliveryDate?: null;
   DeliveryName?: string;
   DeliveryZipCode?: string;
-  DocumentNumber?: string;
+  DocumentNumber?: number;
   DueDate?: string;
   EdiInformation?: EDIInformation;
   EmailInformation?: EmailInformation;
@@ -132,9 +132,9 @@ export default interface Invoice {
   TotalToPay?: number;
   TotalVAT?: number;
   VATIncluded?: boolean;
-  VoucherNumber?: null;
-  VoucherSeries?: null;
-  VoucherYear?: null;
+  VoucherNumber?: Readonly<number>;
+  VoucherSeries?: Readonly<string>;
+  VoucherYear?: Readonly<number>;
   WayOfDelivery?: string;
   YourOrderNumber: string;
   YourReference?: string;

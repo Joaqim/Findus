@@ -35,7 +35,7 @@ export default interface InvoiceInit {
   DeliveryDate?: null;
   DeliveryName?: string;
   DeliveryZipCode: string;
-  DocumentNumber?: string;
+  DocumentNumber?: number;
   ExternalInvoiceReference1?: string;
   ExternalInvoiceReference2?: string;
   Freight?: number;

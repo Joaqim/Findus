@@ -5,6 +5,7 @@ import Accounts from "./Accounts";
 import Articles from "./Articles";
 import CultureInfo from "./CultureInfo";
 import LineItems from "./LineItems";
+import WcOrders from "./WcOrders";
 import type {
   Article,
   Invoice,
@@ -17,7 +18,6 @@ import type {
 } from "./types";
 import type RefundItem from "./types/RefundItem";
 import { formatDate } from "./utils";
-import WcOrders from "./WcOrders";
 
 export default abstract class Invoices {
   public static tryCanBeRefunded(invoice: Invoice): boolean {
@@ -250,6 +250,7 @@ export default abstract class Invoices {
 
     const creditRows = creditInvoice.InvoiceRows as InvoiceRow[];
     creditInvoice.InvoiceRows = [];
+    creditInvoice.Credit = true;
 
     for (const refund of refunds) {
       const simpleRefund = !Object.prototype.hasOwnProperty.call(
@@ -467,24 +468,13 @@ export default abstract class Invoices {
       VATIncluded: true,
 
       YourOrderNumber,
-
-      // YourReference: "findus",
-
-      // Customer
-      /* CustomerName: WcOrders.tryGetCustomerName(order),
-      DeliveryName: WcOrders.tryGetDeliveryName(order),
-      EmailInformation: {
-        EmailAddressTo: order.billing.email,
-      },
-
-      ...WcOrders.tryGetAddresses(order), */
     };
   }
 
   private static tryGenerateInvoiceRows(
     order: WcOrder,
     paymentMethod: "Stripe" | "PayPal" | "GiftCard",
-    expectedTotal?: number
+    strictVatCheck = true
   ): InvoiceRow[] {
     const invoiceRows: InvoiceRow[] = [];
 
@@ -494,8 +484,9 @@ export default abstract class Invoices {
 
     for (const item of order.line_items) {
       const isReduced = LineItems.tryHasReducedRate(item);
+      const isGiftCard = LineItems.isGiftCard(item);
 
-      const { vat, accountNumber } = LineItems.isGiftCard(item)
+      const { vat, accountNumber } = isGiftCard
         ? { vat: 0, accountNumber: 2421 }
         : Accounts.getRate(order.billing.country, isReduced, paymentMethod);
 
@@ -503,7 +494,7 @@ export default abstract class Invoices {
         highestRate = { vat, accountNumber };
       }
 
-      // LineItems.tryVerifyRate(item, vat);
+      if (strictVatCheck) LineItems.tryVerifyRate(item, vat);
 
       invoiceRows.push({
         AccountNumber: accountNumber,
@@ -521,7 +512,7 @@ export default abstract class Invoices {
 
     Invoices.tryAddShippingCost(invoiceRows, order, highestRate);
     Invoices.tryAddGiftCardExpense(invoiceRows, order);
-    Invoices.tryAddRounding(invoiceRows, order, expectedTotal);
+    Invoices.tryAddRounding(invoiceRows, order);
     /*     Invoices.tryAddPaymentFeeCost(
       invoiceRows,
       order,
@@ -532,6 +523,7 @@ export default abstract class Invoices {
     return invoiceRows;
   }
 
+  // NOTE: Unused
   private static tryAddPaymentFeeCost(
     invoiceRows: InvoiceRow[],
     order: WcOrder,
@@ -593,20 +585,21 @@ export default abstract class Invoices {
 
   private static tryAddRounding(
     invoiceRows: InvoiceRow[],
-    order: WcOrder,
-    expectedTotal?: number
+    order: WcOrder
   ): void {
     const { total } = order;
     const ROUNDING_THRESHOLD = 0.05;
     const ROUNDING_MINIMUM = 0.01;
-    const diff =
-      (expectedTotal ??
-        WcOrders.tryGetAccurateTotal(order, ROUNDING_THRESHOLD)) -
-      parseFloat(total);
+
+    const expectedTotal = WcOrders.tryGetAccurateTotal(
+      order,
+      ROUNDING_THRESHOLD
+    );
+    const diff = expectedTotal - parseFloat(total);
 
     if (diff === 0) return;
 
-    // TODO: Is this the same for all Currencies?
+    // TODO: Should ROUNDING_THRESHOLD be the same for all Currencies?
     if (Math.abs(diff) > ROUNDING_THRESHOLD) {
       throw new Error(
         `Unexpected rounding ${diff}, expected total: ${
@@ -715,46 +708,6 @@ export default abstract class Invoices {
       Price: shippingCost + shippingTax,
       VAT: rate.vat * 100,
     });
-
-    /*
-    if (
-      !CultureInfo.isInsideEU(order.billing.country)
-    ) {
-      shippingTax = 0;
-      /*
-      throw new Error(
-        `Unexpected shipping Tax for Order outside EU. Tax: ${shippingTax}, Country: ${order.billing.country}. Expected '0'`
-      );
-    }
-    if (shippingTax !== 0) {
-      const account = Accounts.tryGetSalesAccountForOrder(order);
-      let accountNumber = 0;
-      let vat = 0;
-
-      const wooShippingRate = shippingTax / shippingCost;
-
-      if (account.reduced?.vat.toFixed(3) === wooShippingRate.toFixed(3)) {
-        accountNumber = account.reduced.accountNumber;
-        vat = account.reduced.vat;
-      } else if (
-        account.standard?.vat.toFixed(3) === wooShippingRate.toFixed(3)
-      ) {
-        accountNumber = account.standard.accountNumber;
-        vat = account.standard.vat;
-      } else {
-        throw new Error(
-          `Shipping VAT Account not found. VAT: ${wooShippingRate}, expected either reduced: ${account.reduced?.vat}, or standard: ${account.standard.vat} - ${rate.vat}`
-        );
-      }
-
-      invoiceRows.push({
-        AccountNumber: accountNumber,
-        ArticleNumber: "Shipping.Cost.VAT",
-        Description: `Fraktkostnad - ${(vat * 100).toFixed(2)}% Moms`,
-        DeliveredQuantity: 1,
-        Price: shippingTax,
-      });
-    } */
   }
 
   public static tryCreateInvoice(
@@ -762,7 +715,7 @@ export default abstract class Invoices {
     currencyRate: number,
     storefrontPrefix: "GB" | "ND",
     expectedOrderStatus: "completed" | "refunded" | string = "completed",
-    expectedTotal?: number
+    strictVatCheck = true
   ): Invoice {
     if (order.status !== expectedOrderStatus) {
       throw new Error(`Unexpected order status: '${order.status}'`);
@@ -790,7 +743,7 @@ export default abstract class Invoices {
       InvoiceRows: Invoices.tryGenerateInvoiceRows(
         order,
         paymentMethod,
-        expectedTotal
+        strictVatCheck
       ),
     };
 

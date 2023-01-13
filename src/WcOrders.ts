@@ -271,8 +271,8 @@ abstract class WcOrders {
 
   public static tryVerifyCurrencyRate(
     order: WcOrder,
-    currencyRate: number
-  ): number | undefined {
+    currencyRate: number | undefined
+  ): number {
     const { currency } = order;
 
     if (!["EUR", "USD", "SEK"].includes(currency)) {
@@ -281,8 +281,12 @@ abstract class WcOrders {
       );
     }
 
-    if (currency === "SEK" && currencyRate === 1) {
-      return currencyRate;
+    if (!currencyRate || currencyRate === 1) {
+      if (currency !== "SEK")
+        throw new Error(
+          `Unexpected Currency Rate for non-SEK Currency: '${currency}', Currency Rate: '${currencyRate}'`
+        );
+      return 1;
     }
 
     // NOTE: Lazy currency rate check for USD and EUR.

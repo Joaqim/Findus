@@ -9,12 +9,14 @@ const sanitizeTextForFortnox = (description: string): string => {
     "^": " ",
     "|": "-",
     "·": "-",
+    // eslint-disable-next-line prettier/prettier
   };
+
   // U-0650 - Arabic Kasra: https://unicodeplus.com/U+0650
-  // TODO: '·' can't seem to get replaced with a '-', removing it completely for now.
   return description
-    .replace(/u650|·/, "")
-    .replace(/[[\]^{|}~–]/g, (c) => replacement[c]);
+    .replace(/u650/, "")
+    .replace("ö", "ö") // Imposter ö, a small 'o' with an umlaut
+    .replace(/[[\]^{|}~·ö–]/g, (c) => replacement[c]);
 };
 
 export default sanitizeTextForFortnox;

@@ -12,4 +12,7 @@ export default interface PayoutItemized {
   order_id: string;
   payout_date: number;
   created_utc: number;
+
+  woo_order_id: number;
+  woo_provider: string;
 }
